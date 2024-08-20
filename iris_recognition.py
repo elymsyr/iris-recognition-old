@@ -777,6 +777,46 @@ def insert_iris(feature_tag, feature_data):
     conn.commit()
     conn.close()
 
+def retrieve_iris(iris_id):
+    conn = sqlite3.connect('iris_scans.db')
+    c = conn.cursor()
+
+    # Retrieve from iris table
+    c.execute('SELECT * FROM iris WHERE iris_id = ?', (iris_id,))
+    iris_metadata = c.fetchone()
+
+    feature_tables = ['right_side', 'left_side', 'bottom', 'complete']
+    iris_data = {'iris_metadata': iris_metadata}
+
+    for table_name in feature_tables:
+        c.execute(f'SELECT * FROM {table_name} WHERE iris_id = ?', (iris_id,))
+        rows = c.fetchall()
+        for row in rows:
+            # Deserialize the feature data
+            img = pickle.loads(row[2])
+            pupil_circle = pickle.loads(row[3])
+            ext_circle = pickle.loads(row[4])
+            kp = pickle.loads(row[5])
+            img_kp_init = pickle.loads(row[6])
+            img_kp_filtered = pickle.loads(row[7])
+            des = pickle.loads(row[8])
+            
+            # Convert keypoints back
+            kp = deserialize_keypoints(kp)
+            
+            iris_data[table_name] = {
+                'img': img,
+                'pupil_circle': pupil_circle,
+                'ext_circle': ext_circle,
+                'kp': kp,
+                'img_kp_init': img_kp_init,
+                'img_kp_filtered': img_kp_filtered,
+                'des': des
+            }
+    
+    conn.close()
+    return iris_data   
+
 if __name__ == "__main__":
 
     # Specify 2 image paths
@@ -786,14 +826,18 @@ if __name__ == "__main__":
     # if os.path.isfile(filepath1) and os.path.isfile(filepath2):
     #     compare_images(filepath1, filepath2)
 
-    print("Analysing " + filepath1)
-    rois_1 = load_rois_from_image(filepath1)
-    print("Dict rois_1:")
-    for key, value in rois_1.items():
-        print(f"  {key}")
-        for s_key,s_value in value.items():
-            print(f"    {s_key} : {type(s_value) if type(s_value) not in [tuple, list] else {type(item) for item in s_value}}")
+    # print("Analysing " + filepath1)
+    # rois_1 = load_rois_from_image(filepath1)
 
     if 'iris_scans.db' not in os.listdir():
         create_tables()
-    insert_iris('iris_01', rois_1)
+    # insert_iris('iris_01', rois_1)
+    
+    data = retrieve_iris(1)
+    print("Dict data:")
+    for key, value in data.items():
+        print(f"  {key}")
+        if type(value) == dict:
+            for s_key,s_value in value.items():
+                print(f"    {s_key} : {type(s_value) if type(s_value) not in [tuple, list] else {type(item) for item in s_value}}")
+    
