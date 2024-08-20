@@ -4,7 +4,7 @@ import os
 import sys
 import math
 import random
-import cPickle as pickle
+import pickle
 import copy
 import gzip
 import inspect
@@ -14,40 +14,40 @@ from matplotlib import pyplot as plt
 
 
 def compare_images(filepath1, filepath2):
-    print "Analysing " + filepath1
+    print("Analysing " + filepath1)
     rois_1 = load_rois_from_image(filepath1)
 
-    print "Analysing " + filepath2
+    print("Analysing " + filepath2)
     rois_2 = load_rois_from_image(filepath2)
     
     getall_matches(rois_1, rois_2, 0.8, 10, 0.15, show=True)
 
 def compare_binfiles(bin_path1, bin_path2):
-    print "Analysing " + bin_path1
+    print("Analysing " + bin_path1)
     rois_1 = load_rois_from_bin(bin_path1)
     
-    print "Analysing " + bin_path2
+    print("Analysing " + bin_path2)
     rois_2 = load_rois_from_bin(bin_path2)
 
     getall_matches(rois_1, rois_2, 0.88, 10, 0.07, show=True)
 
 def load_rois_from_image(filepath):
-    img = load_image(filepath, show=True)
+    img = load_image(filepath) # show=True
 
-    print "Getting iris boundaries.."
+    print("Getting iris boundaries..")
     pupil_circle, ext_iris_circle = get_iris_boundaries(img, show=True)
     if not pupil_circle or not ext_iris_circle:
-        print "Error finding iris boundaries!"
+        print("Error finding iris boundaries!")
         return
 
-    print "Equalizing histogram .."
+    print("Equalizing histogram ..")
     roi = get_equalized_iris(img, ext_iris_circle, pupil_circle, show=True)
 
-    print "Getting roi iris images ..."
+    print("Getting roi iris images ...")
     rois = get_rois(roi, pupil_circle, ext_iris_circle, show=True)
 
-    print "Searching for keypoints ... \n"
-    sift = cv2.xfeatures2d.SIFT_create()
+    print("Searching for keypoints ... \n")
+    sift = cv2.SIFT_create()
     load_keypoints(sift, rois, show=True)
     load_descriptors(sift, rois)  
 
@@ -66,7 +66,7 @@ def get_iris_boundaries(img, show=False):
     pupil_circle = find_pupil(img)
 
     if not pupil_circle:
-        print 'ERROR: Pupil circle not found!'
+        print('ERROR: Pupil circle not found!')
         return None, None
 
     # Finding iris outer boundary
@@ -78,13 +78,13 @@ def get_iris_boundaries(img, show=False):
 
     while(not ext_iris_circle and multiplier <= 0.7):
         multiplier += 0.05
-        print 'Searching exterior iris circle with multiplier ' + \
-              str(multiplier)
+        print('Searching exterior iris circle with multiplier ' + str(multiplier))
+              
         center_range = int(math.ceil(pupil_circle[2]*multiplier))
         ext_iris_circle = find_ext_iris(img, pupil_circle,
                                         center_range, radius_range)
     if not ext_iris_circle:
-        print 'ERROR: Exterior iris circle not found!'
+        print('ERROR: Exterior iris circle not found!')
         return None, None
     
     if show:
@@ -110,33 +110,27 @@ def find_pupil(img):
     param2 = 120 # 150
     pupil_circles = []
     while(param2 > 35 and len(pupil_circles) < 100):
-        for mdn,thrs in [(m,t)
-                         for m in [3,5,7]
-                         for t in [20,25,30,35,40,45,50,55,60]]:
+        for mdn,thrs in [(m,t) for m in [3,5,7] for t in [20,40,45,50]]: # 25,30,35,55,60
             # Median Blur
             median = cv2.medianBlur(img, 2*mdn+1)
-
+            # cv2.imshow("median",median)
+            # cv2.imshow("img",img)
             # Threshold
-            ret, thres = cv2.threshold(
-                            median, thrs, 255,
-                            cv2.THRESH_BINARY_INV)
+            ret, thres = cv2.threshold(median, thrs, 255,cv2.THRESH_BINARY_INV)
+            # cv2.imshow("thres",thres)
 
             # Fill Contours
-            con_img, contours, hierarchy = \
-                    cv2.findContours(thres.copy(),
-                                     cv2.RETR_EXTERNAL,
-                                     cv2.CHAIN_APPROX_NONE)
+            contours, hierarchy = cv2.findContours(thres.copy(),cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_NONE)
             draw_con = cv2.drawContours(thres, contours, -1, (255), -1)
-
+            # cv2.imshow("draw_con",draw_con)
             # Canny Edges
             edges = get_edges(thres)
-
+            # cv2.imshow("edges",edges)
+            # cv2.waitKey(100000000)
             # HoughCircles
-            circles = cv2.HoughCircles(edges, cv2.HOUGH_GRADIENT, 1, 1,
-                                       np.array([]), param1, param2)                
-            if circles is not None:
-                # convert the (x, y) coordinates and radius of the circles 
-                # to integers
+            circles = cv2.HoughCircles(edges, cv2.HOUGH_GRADIENT, 1, 1,np.array([]), param1, param2)    
+            if circles is not None and circles.size > 0:
+                # convert the (x, y) coordinates and radius of the circles to integers
                 circles = np.round(circles[0, :]).astype("int")
                 for c in circles:
                     pupil_circles.append(c)
@@ -148,6 +142,9 @@ def find_pupil(img):
     return get_mean_circle(pupil_circles)
 
 def get_mean_circle(circles, draw=None):
+    # print(len(circles), circles)
+    # for item in circles:
+    #     print(item.size)
     if not circles:
         return
     mean_0 = int(np.mean([c[0] for c in circles]))
@@ -190,7 +187,7 @@ def find_ext_iris(img, pupil_circle, center_range, radius_range):
             # HoughCircles
             circles = cv2.HoughCircles(edges, cv2.HOUGH_GRADIENT, 1, 1,
                                        np.array([]), 200, hough_param)                
-            if circles is not None:
+            if circles is not None and circles.size > 0:
                 # convert the (x, y) coordinates and radius of the 
                 # circles to integers
                 circles = np.round(circles[0, :]).astype("int")
@@ -212,7 +209,7 @@ def find_ext_iris(img, pupil_circle, center_range, radius_range):
         param2 = param2 -1
 
     if not total_circles:
-        print "Running plan B on finding ext iris circle"
+        print("Running plan B on finding ext iris circle")
         param2 = 120
         while(param2 > 40 and len(total_circles) < 50):
             crt_circles = get_circles(
@@ -249,7 +246,7 @@ def filtered_circles(circles, draw=None):
         return alpha_circle[2]
 
     if not circles:
-        print 'Error: empty circles list in filtered_circles() !'
+        print('Error: empty circles list in filtered_circles() !')
         return []
     c_0_mean, c_0_dev = standard_dev([int(i[0]) for i in circles])
     c_1_mean, c_1_dev = standard_dev([int(i[1]) for i in circles])
@@ -418,14 +415,13 @@ def get_rois(img, pupil_circle, ext_circle, show=False):
                             rois[pos]['img'], M, 
                             (img.shape[1], img.shape[0]))
 
-    rois['right-side']['img'] = \
-        rois['right-side']['img'][0:2.5*ext_circle[2], 0:1.25*ext_circle[2]]
-    rois['left-side']['img'] = \
-        rois['left-side']['img'][0:2.5*ext_circle[2], 0:1.25*ext_circle[2]]
-    rois['bottom']['img'] = \
-        rois['bottom']['img'][0:1.25*ext_circle[2], 0:2.5*ext_circle[2]]
-    rois['complete']['img'] = \
-        rois['complete']['img'][0:2.5*ext_circle[2], 0:2.5*ext_circle[2]]
+    # print(type(rois['right-side']['img']), type(ext_circle))
+    # print(rois['right-side']['img'].shape, ext_circle[2])
+    
+    rois['right-side']['img'] = rois['right-side']['img'][0:int(2.5*ext_circle[2]), 0:int(1.25*ext_circle[2])]
+    rois['left-side']['img'] = rois['left-side']['img'][0:int(2.5*ext_circle[2]), 0:int(1.25*ext_circle[2])]
+    rois['bottom']['img'] = rois['bottom']['img'][0:int(1.25*ext_circle[2]), 0:int(2.5*ext_circle[2])]
+    rois['complete']['img'] = rois['complete']['img'][0:int(2.5*ext_circle[2]), 0:int(2.5*ext_circle[2])]
 
     if show:
         plt.subplot(2,2,1),plt.imshow(rois['right-side']['img'], cmap='gray')
@@ -463,7 +459,9 @@ def load_keypoints(sift, rois, show=False):
         inside = 0
         outside = 0
         wrong_angle = 0
-        for kp in rois[pos]['kp'][:]:
+        print(type(rois[pos]['kp']), rois[pos]['kp'])
+        kp_list = list(rois[pos]['kp'][:])
+        for kp in kp_list:
             c_angle = angle_v(rois[pos]['ext_circle'][0],
                               rois[pos]['ext_circle'][1],
                               kp.pt[0], kp.pt[1])
@@ -471,19 +469,21 @@ def load_keypoints(sift, rois, show=False):
                                rois[pos]['pupil_circle'][1],
                                rois[pos]['pupil_circle'][2]+3,
                                kp.pt[0], kp.pt[1]):
-                rois[pos]['kp'].remove(kp)
+                kp_list.remove(kp)
                 inside +=1
             elif not point_in_circle(rois[pos]['ext_circle'][0],
                                      rois[pos]['ext_circle'][1],
                                      rois[pos]['ext_circle'][2]-5,
                                      kp.pt[0], kp.pt[1]):
-                rois[pos]['kp'].remove(kp)
+                kp_list.remove(kp)
                 outside +=1
             elif (pos == 'right-side' and (c_angle <= -45 or c_angle >= 45)) or \
                  (pos == 'left-side' and (c_angle <= 135 and c_angle >= -135)) or \
                  (pos == 'bottom' and (c_angle <= -135 or c_angle >= -45)):
-                rois[pos]['kp'].remove(kp)
+                kp_list.remove(kp)
                 wrong_angle +=1
+        rois[pos]['kp'] = tuple(kp_list)
+                
 
         # Create images with filtered keypoints
         rois[pos]['img_kp_filtered'] = cv2.drawKeypoints(
@@ -527,15 +527,15 @@ def getall_matches(rois_1, rois_2, dratio,
 
     for pos in ['right-side','left-side','bottom','complete']:
         if not rois_1[pos]['kp'] or not rois_2[pos]['kp']:
-            print "KeyPoints not found in one of rois_x[pos]['kp'] !!!"
-            print " -->", pos, len(rois_1[pos]['kp']), len(rois_2[pos]['kp'])
+            print("KeyPoints not found in one of rois_x[pos]['kp'] !!!")
+            print(" -->", pos, len(rois_1[pos]['kp']), len(rois_2[pos]['kp']))
         else:
             matches = get_matches(rois_1[pos], rois_2[pos],
                                    dratio, stdev_angle, stdev_dist)        
             numberof_matches[pos] = len(matches)
             
         if show:
-            print "{0} matches: {1}".format(pos, str(len(matches)))
+            print("{0} matches: {1}".format(pos, str(len(matches))))
             crt_image = cv2.drawMatchesKnn(
                             rois_1[pos]['img'],rois_1[pos]['kp'],
                             rois_2[pos]['img'],rois_2[pos]['kp'],
@@ -551,7 +551,7 @@ def getall_matches(rois_1, rois_2, dratio,
 def get_matches(roipos_1, roipos_2,
                 dratio, stdev_angle, stdev_dist):    
     if not roipos_1['kp'] or not roipos_2['kp']:
-        print "KeyPoints not found in one of roipos_x['kp'] !!!"
+        print("KeyPoints not found in one of roipos_x['kp'] !!!")
         return []
 
     bf = cv2.BFMatcher()
@@ -604,7 +604,7 @@ def get_matches(roipos_1, roipos_2,
     if True and filtered:
         median_diff_angle = median(diff_angles)
         median_diff_dist = median(diff_dists)
-        #print "median dist:", median_diff_dist
+        #print("median dist:", median_diff_dist)
         for m in filtered[:]:
             x1,y1 = kp1[m.queryIdx].pt
             x2,y2 = kp2[m.trainIdx].pt
@@ -664,9 +664,9 @@ def median(x):
 
 def standard_dev(x):
     if not x:
-        print 'Error: empty list parameter in standard_dev() !'
-        print inspect.getouterframes( inspect.currentframe() )[1]
-        print
+        print('Error: empty list parameter in standard_dev() !')
+        print(inspect.getouterframes( inspect.currentframe() )[1])
+        print()
         return None, None
     m = mean(x)
     sumsq = 0.0
@@ -710,8 +710,8 @@ def pickle_keypoints(keypoints):
 if __name__ == "__main__":
 
     # Specify 2 image paths
-    filepath1 = r'./S2005R07.jpg'
-    filepath2 = r'./S2005R09.jpg'
+    filepath1 = r'./S2002R20.jpg'
+    filepath2 = r'./S2002R01.jpg'
 
     if os.path.isfile(filepath1) and os.path.isfile(filepath2):
         compare_images(filepath1, filepath2)
