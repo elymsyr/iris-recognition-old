@@ -754,7 +754,7 @@ def insert_iris(feature_tag, feature_data):
     # Insert into feature tables
     feature_tables = ['right_side', 'left_side', 'bottom', 'complete']
     for table_name in feature_tables:
-        data = feature_data.get(table_name, {})
+        data = feature_data.get(table_name.replace('_', '-'), {})
         if data:
             serialized_pupil_circle = pickle.dumps(data['pupil_circle'])
             serialized_ext_circle = pickle.dumps(data['ext_circle'])
@@ -804,7 +804,7 @@ def retrieve_iris(iris_id):
             # Convert keypoints back
             kp = deserialize_keypoints(kp)
             
-            iris_data[table_name] = {
+            iris_data[table_name.replace('_', '-')] = {
                 'img': img,
                 'pupil_circle': pupil_circle,
                 'ext_circle': ext_circle,
@@ -817,6 +817,14 @@ def retrieve_iris(iris_id):
     conn.close()
     return iris_data   
 
+def print_dict_types(data):
+    print("Dict data:")
+    for key, value in data.items():
+        print(f"  {key}")
+        if type(value) == dict:
+            for s_key,s_value in value.items():
+                print(f"    {s_key} : {type(s_value) if type(s_value) != tuple else {type(item) for item in s_value}}")    
+
 if __name__ == "__main__":
 
     # Specify 2 image paths
@@ -826,18 +834,14 @@ if __name__ == "__main__":
     # if os.path.isfile(filepath1) and os.path.isfile(filepath2):
     #     compare_images(filepath1, filepath2)
 
-    # print("Analysing " + filepath1)
-    # rois_1 = load_rois_from_image(filepath1)
+    print("Analysing " + filepath1)
+    rois_1 = load_rois_from_image(filepath1)
+    print_dict_types(rois_1)
+
 
     if 'iris_scans.db' not in os.listdir():
         create_tables()
-    # insert_iris('iris_01', rois_1)
+    insert_iris('iris_test_01', rois_1)
     
     data = retrieve_iris(1)
-    print("Dict data:")
-    for key, value in data.items():
-        print(f"  {key}")
-        if type(value) == dict:
-            for s_key,s_value in value.items():
-                print(f"    {s_key} : {type(s_value) if type(s_value) not in [tuple, list] else {type(item) for item in s_value}}")
-    
+    print_dict_types(data)
