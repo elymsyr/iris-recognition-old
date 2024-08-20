@@ -1,14 +1,6 @@
 import numpy as np
-import cv2
-import os
-import sys
-import math
-import random
-import pickle
-import copy
-import gzip
-import inspect
-import itertools
+import cv2, sqlite3, os
+import math, random, pickle, copy, gzip, inspect
 
 from matplotlib import pyplot as plt
 
@@ -16,7 +8,7 @@ from matplotlib import pyplot as plt
 def compare_images(filepath1, filepath2):
     print("Analysing " + filepath1)
     rois_1 = load_rois_from_image(filepath1)
-
+    
     print("Analysing " + filepath2)
     rois_2 = load_rois_from_image(filepath2)
     
@@ -459,7 +451,6 @@ def load_keypoints(sift, rois, show=False):
         inside = 0
         outside = 0
         wrong_angle = 0
-        print(type(rois[pos]['kp']), rois[pos]['kp'])
         kp_list = list(rois[pos]['kp'][:])
         for kp in kp_list:
             c_angle = angle_v(rois[pos]['ext_circle'][0],
@@ -707,12 +698,102 @@ def pickle_keypoints(keypoints):
     return unfolded
 
 
+def serialize_keypoints(keypoints):
+    """Convert list of cv2.KeyPoint objects to a serializable format."""
+    return [(kp.pt[0], kp.pt[1], kp.size, kp.angle, kp.response, kp.octave, kp.class_id) for kp in keypoints]
+
+def deserialize_keypoints(serialized_keypoints):
+    """Convert serialized keypoints back to list of cv2.KeyPoint objects."""
+    return [cv2.KeyPoint(x, y, size, angle, response, octave, class_id) 
+            for (x, y, size, angle, response, octave, class_id) in serialized_keypoints]
+
+
+def create_tables():
+    conn = sqlite3.connect('iris_scans.db')
+    c = conn.cursor()
+
+    # Create iris table
+    c.execute('''
+    CREATE TABLE IF NOT EXISTS iris (
+        iris_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        feature_tag TEXT UNIQUE
+    )
+    ''') # add feature numbers found here
+
+    # Create feature tables
+    feature_tables = ['right_side', 'left_side', 'bottom', 'complete']
+    for table_name in feature_tables:
+        c.execute(f'''
+        CREATE TABLE IF NOT EXISTS {table_name} (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            iris_id INTEGER,
+            img BLOB,
+            pupil_circle BLOB,
+            ext_circle BLOB,
+            kp BLOB,
+            img_kp_init BLOB,
+            img_kp_filtered BLOB,
+            des BLOB,
+            FOREIGN KEY (iris_id) REFERENCES iris (iris_id)
+        )
+        ''')
+
+    conn.commit()
+    conn.close()
+
+def insert_iris(feature_tag, feature_data):
+    conn = sqlite3.connect('iris_scans.db')
+    c = conn.cursor()
+
+    # Insert into iris table
+    c.execute('''
+    INSERT INTO iris (feature_tag) VALUES (?)
+    ''', (feature_tag,))
+    iris_id = c.lastrowid
+
+    # Insert into feature tables
+    feature_tables = ['right_side', 'left_side', 'bottom', 'complete']
+    for table_name in feature_tables:
+        data = feature_data.get(table_name, {})
+        if data:
+            serialized_pupil_circle = pickle.dumps(data['pupil_circle'])
+            serialized_ext_circle = pickle.dumps(data['ext_circle'])
+            serialized_kp = pickle.dumps(serialize_keypoints(data['kp']))
+
+            c.execute(f'''
+            INSERT INTO {table_name} (iris_id, img, pupil_circle, ext_circle, kp, img_kp_init, img_kp_filtered, des)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (
+                iris_id,
+                pickle.dumps(data['img']),
+                serialized_pupil_circle,
+                serialized_ext_circle,
+                serialized_kp,
+                pickle.dumps(data['img_kp_init']),
+                pickle.dumps(data['img_kp_filtered']),
+                pickle.dumps(data['des'])
+            ))
+
+    conn.commit()
+    conn.close()
+
 if __name__ == "__main__":
 
     # Specify 2 image paths
     filepath1 = r'./S2002R20.jpg'
     filepath2 = r'./S2002R01.jpg'
 
-    if os.path.isfile(filepath1) and os.path.isfile(filepath2):
-        compare_images(filepath1, filepath2)
+    # if os.path.isfile(filepath1) and os.path.isfile(filepath2):
+    #     compare_images(filepath1, filepath2)
 
+    print("Analysing " + filepath1)
+    rois_1 = load_rois_from_image(filepath1)
+    print("Dict rois_1:")
+    for key, value in rois_1.items():
+        print(f"  {key}")
+        for s_key,s_value in value.items():
+            print(f"    {s_key} : {type(s_value) if type(s_value) not in [tuple, list] else {type(item) for item in s_value}}")
+
+    if 'iris_scans.db' not in os.listdir():
+        create_tables()
+    insert_iris('iris_01', rois_1)
