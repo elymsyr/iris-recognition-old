@@ -380,7 +380,7 @@ def get_rois(img, pupil_circle, ext_circle, show=False):
             if not point_in_circle(pupil_circle[0], pupil_circle[1],
                                    pupil_circle[2], p_col, p_row) and \
                point_in_circle(ext_circle[0], ext_circle[1], ext_circle[2],
-                                   p_col, p_row):
+                                   p_col, p_row): # check if the point is in the pupil mask
                 theta = angle_v(ext_circle[0], ext_circle[1], p_col, p_row)
                 if theta >= -50 and theta <= 50:
                     rois['right-side']['img'][p_row,p_col] = img[p_row,p_col]
@@ -388,7 +388,7 @@ def get_rois(img, pupil_circle, ext_circle, show=False):
                     rois['left-side']['img'][p_row,p_col] = img[p_row,p_col]
                 if theta >= -140 and theta <= -40:
                     rois['bottom']['img'][p_row,p_col] = img[p_row,p_col]
-                rois['complete']['img'][p_row,p_col] = img[p_row,p_col]
+                rois['complete']['img'][p_row,p_col] = img[p_row,p_col] # create images for sides
 
     rois['right-side']['ext_circle'] = \
             (0, int(1.25*ext_circle[2]), int(ext_circle[2]))
