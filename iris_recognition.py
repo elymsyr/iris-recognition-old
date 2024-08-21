@@ -408,19 +408,25 @@ def get_rois(img, pupil_circle, ext_circle, show=False):
         ty = rois[pos]['ext_circle'][1] - ext_circle[1]
         rois[pos]['pupil_circle'] = (int(tx + pupil_circle[0]),
                                      int(ty + pupil_circle[1]),
-                                     int(pupil_circle[2]))
+                                     int(pupil_circle[2])) # The pupil's position (pupil_circle) in the current ROI is updated by adding the calculated offsets tx and ty to its x and y coordinates. The radius of the pupil (pupil_circle[2]) remains unchanged.
         M = np.float32([[1,0,tx],[0,1,ty]])
         rois[pos]['img'] = cv2.warpAffine(
                             rois[pos]['img'], M, 
                             (img.shape[1], img.shape[0]))
+        cv2.imshow("rois[pos]['img'] After", rois[pos]['img'])
 
     # print(type(rois['right-side']['img']), type(ext_circle))
     # print(rois['right-side']['img'].shape, ext_circle[2])
+    
+    cv2.imshow("rois['right-side']['img'] Before", rois['right-side']['img'])
     
     rois['right-side']['img'] = rois['right-side']['img'][0:int(2.5*ext_circle[2]), 0:int(1.25*ext_circle[2])]
     rois['left-side']['img'] = rois['left-side']['img'][0:int(2.5*ext_circle[2]), 0:int(1.25*ext_circle[2])]
     rois['bottom']['img'] = rois['bottom']['img'][0:int(1.25*ext_circle[2]), 0:int(2.5*ext_circle[2])]
     rois['complete']['img'] = rois['complete']['img'][0:int(2.5*ext_circle[2]), 0:int(2.5*ext_circle[2])]
+
+    cv2.imshow("rois['right-side']['img'] After", rois['right-side']['img'])
+
 
     if show:
         plt.subplot(2,2,1),plt.imshow(rois['right-side']['img'], cmap='gray')
