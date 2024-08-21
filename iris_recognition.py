@@ -27,7 +27,7 @@ def load_rois_from_image(filepath):
     img = load_image(filepath) # show=True
 
     print("Getting iris boundaries..")
-    pupil_circle, ext_iris_circle = get_iris_boundaries(img, show=True)
+    pupil_circle, ext_iris_circle = get_iris_boundaries(img, show=True) # Getting iris boundaries includes outer and inner boundary.
     if not pupil_circle or not ext_iris_circle:
         print("Error finding iris boundaries!")
         return
@@ -321,12 +321,16 @@ def get_equalized_iris(img, ext_iris_circle, pupil_circle, show=False):
         cv2.circle(mask,
                    (pupil_circle[0],pupil_circle[1]),
                    pupil_circle[2],(0), -1)
-
+        
+        # cv2.imshow('mask iris', mask) # mask for boundaries
+        
         roi = cv2.bitwise_and(img, mask)
 
         return roi
 
     roi = find_roi()
+
+    # cv2.imshow('roi', roi) # see roi
 
     # Mask the top side of the iris
     for p_col in range(roi.shape[1]):
@@ -424,6 +428,7 @@ def get_rois(img, pupil_circle, ext_circle, show=False):
         plt.title('bottom'),plt.xticks([]),plt.yticks([])
         plt.subplot(2,2,4),plt.imshow(rois['complete']['img'], cmap='gray')
         plt.title('complete'),plt.xticks([]),plt.yticks([])
+        print("Showing only sides grey images...")
         plt.show()
 
     return rois
@@ -839,9 +844,9 @@ if __name__ == "__main__":
     print_dict_types(rois_1)
 
 
-    if 'iris_scans.db' not in os.listdir():
-        create_tables()
-    insert_iris('iris_test_01', rois_1)
+    # if 'iris_scans.db' not in os.listdir():
+    #     create_tables()
+    # insert_iris('iris_test_01', rois_1)
     
-    data = retrieve_iris(1)
-    print_dict_types(data)
+    # data = retrieve_iris(1)
+    # print_dict_types(data)
