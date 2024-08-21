@@ -338,16 +338,19 @@ def get_equalized_iris(img, ext_iris_circle, pupil_circle, show=False):
             theta = angle_v(ext_iris_circle[0], ext_iris_circle[1], 
                             p_col, p_row)
             if theta > 50 and theta < 130:
-                roi[p_row,p_col] = 0
+                roi[p_row,p_col] = 0 # crop from mask between degrees 50 and 130 to avoid eyelashes
 
     ret, roi = cv2.threshold(roi,50,255,cv2.THRESH_TOZERO)
 
+    # cv2.imshow('roi-top', roi) # see roi
+    
     equ_roi = roi.copy()
-    cv2.equalizeHist(roi, equ_roi)
-    roi = cv2.addWeighted(roi, 0.0, equ_roi, 1.0, 0)
+    cv2.equalizeHist(roi, equ_roi) # Histogram equalization is a method in image processing of CONTRAST ADJUSMENT using the image’s histogram.
+    # cv2.imshow('roi-equalizeHist', roi) # see roi
+    roi = cv2.addWeighted(roi, 0.0, equ_roi, 1.0, 0) # Use the addWeighted() function to blend images.
 
     if show:
-        cv2.imshow('equalized histogram iris region', roi)
+        cv2.imshow('equalized histogram iris region', roi) # cv2.imshow('roi-addWeighted', roi) # see roi
         ch = cv2.waitKey(0)
         cv2.destroyAllWindows()
 
