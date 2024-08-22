@@ -1,7 +1,12 @@
-# Python Script for an Iris Recognition System using OpenCV
+# Iris Recognition System
 
-This Python application takes 2 infrared eye images as input and gives a matching score after comparing the 2 irises. If a matching score threshold is selected, it can decide if the images represent the same person.
+This project is an iris recognition system ([*See original project.*](https://github.com/andreibercu/iris-recognition)) to analyze and recognize iris images. It includes functionality for feature extraction, comparison of iris features, and performance improvements for various scenarios, including suboptimal camera conditions. The project has been updated to run on Python 3.9.x and includes functionality to save iris data to a database. There are also plans to develop a dynamic system with a GUI or mobile app for real-time use.
 
-The algorithm firstly localizes the iris region in the 2 eye images, identifies and encodes the keypoints characterizing each of the irises and then uses the SIFT algorithm provided by OpenCV to compare the 2 sets of key points. SIFT (Scale-invariant feature transform) is an algorithm used in computer vision to detect and describe local features in images.
+## Planned Features
+[ ] **Improved Iris Analysis**: Improved extraction of features from iris images and creating a dictionary for recognition.
+[ ] **Iris Comparison in Real-Time**: Comparing extracted iris features to recognize individuals in real-time.
+[ ] **Performance Improvements**: Enhancements for recognition performance and speed, especially under suboptimal camera conditions.
+[ ] **Database Integration**: Save and retrieve iris data using a database.
+[ ] **Future Development**: Plans to create a GUI or mobile app for dynamic use.
 
-For testing purposes I used an iris image database provided by CASIA (The Institute of Automation, Chinese Academy of Sciences) containing more than 16k eye images from more than 400 individuals. I generated approximately 50k test experiments and, if it is selected a matching score threshold so that the ‘false accept rate’ is 0 (no matches in comparisons between irises from 2 different persons), then the ‘false reject rate’ is approximately 25%, meaning the algorithm gives the right answer in 75% of cases when comparing iris images coming from the same person.
+## Installation
