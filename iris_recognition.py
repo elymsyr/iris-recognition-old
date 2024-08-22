@@ -375,6 +375,8 @@ def get_rois(img, pupil_circle, ext_circle, show=False):
             'complete': copy.deepcopy(init_dict)
             }
 
+
+    # cv2.imshow("rois['right-side']['img'] Before", rois['right-side']['img'])
     for p_col in range(img.shape[1]):
         for p_row in range(img.shape[0]):
             if not point_in_circle(pupil_circle[0], pupil_circle[1],
@@ -388,7 +390,8 @@ def get_rois(img, pupil_circle, ext_circle, show=False):
                     rois['left-side']['img'][p_row,p_col] = img[p_row,p_col]
                 if theta >= -140 and theta <= -40:
                     rois['bottom']['img'][p_row,p_col] = img[p_row,p_col]
-                rois['complete']['img'][p_row,p_col] = img[p_row,p_col] # create images for sides
+                rois['complete']['img'][p_row,p_col] = img[p_row,p_col] # checks if the point is in the desired angles and create images for sides
+    # cv2.imshow("rois['right-side']['img'] After", rois['right-side']['img'])
 
     rois['right-side']['ext_circle'] = \
             (0, int(1.25*ext_circle[2]), int(ext_circle[2]))
@@ -403,6 +406,7 @@ def get_rois(img, pupil_circle, ext_circle, show=False):
              int(1.25*ext_circle[2]),
              int(ext_circle[2]))
     
+    # cv2.imshow("rois['right-side']['img'] Before", rois['right-side']['img'])
     for pos in ['right-side','left-side','bottom','complete']:
         tx = rois[pos]['ext_circle'][0] - ext_circle[0]
         ty = rois[pos]['ext_circle'][1] - ext_circle[1]
@@ -411,9 +415,9 @@ def get_rois(img, pupil_circle, ext_circle, show=False):
                                      int(pupil_circle[2])) # The pupil's position (pupil_circle) in the current ROI is updated by adding the calculated offsets tx and ty to its x and y coordinates. The radius of the pupil (pupil_circle[2]) remains unchanged.
         M = np.float32([[1,0,tx],[0,1,ty]])
         rois[pos]['img'] = cv2.warpAffine(
-                            rois[pos]['img'], M, 
+                            rois[pos]['img'], M,
                             (img.shape[1], img.shape[0]))
-        # cv2.imshow("rois[pos]['img'] After", rois[pos]['img'])
+    # cv2.imshow("rois['right-side']['img'] After", rois['right-side']['img'])
 
     # print(type(rois['right-side']['img']), type(ext_circle))
     # print(rois['right-side']['img'].shape, ext_circle[2])
@@ -444,14 +448,25 @@ def get_rois(img, pupil_circle, ext_circle, show=False):
 
 def load_keypoints(sift, rois, show=False):    
     bf = cv2.BFMatcher()
+    
+    
     for pos in ['right-side','left-side','bottom','complete']:        
+        # cv2.imshow(f"rois['{pos}']['img_kp_init'] Before", rois[pos]['img_kp_init'])
         rois[pos]['kp'] = sift.detect(rois[pos]['img'],None)
-
+        # for i, kp in enumerate(rois[pos]['kp'][0:2]):
+        #     print(f"KeyPoint {i}:")
+        #     print(f"  - Position (x, y): ({kp.pt[0]}, {kp.pt[1]})")
+        #     print(f"  - Size: {kp.size}")
+        #     print(f"  - Angle: {kp.angle}")
+        #     print(f"  - Response: {kp.response}")
+        #     print(f"  - Octave: {kp.octave}")
+        #     print(f"  - Class ID: {kp.class_id}")
         # Create image with non-filtered keypoints
         rois[pos]['img_kp_init'] = cv2.drawKeypoints(
                                         rois[pos]['img'], rois[pos]['kp'],
                                         color=(0,255,0), flags=0,
                                         outImage=None)
+        # cv2.imshow(f"rois['{pos}']['img_kp_init'] After", rois[pos]['img_kp_init'])
         cv2.circle(
             rois[pos]['img_kp_init'],
             (rois[pos]['pupil_circle'][0], rois[pos]['pupil_circle'][1]),
@@ -461,10 +476,12 @@ def load_keypoints(sift, rois, show=False):
             (rois[pos]['ext_circle'][0], rois[pos]['ext_circle'][1]),
             rois[pos]['ext_circle'][2], (0,255,255), 1)
 
+
         # Filter detected keypoints
         inside = 0
         outside = 0
         wrong_angle = 0
+        if pos == 'complete' : rois['kp_len'] = len(rois[pos]['kp'])
         kp_list = list(rois[pos]['kp'][:])
         for kp in kp_list:
             c_angle = angle_v(rois[pos]['ext_circle'][0],
@@ -488,7 +505,7 @@ def load_keypoints(sift, rois, show=False):
                 kp_list.remove(kp)
                 wrong_angle +=1
         rois[pos]['kp'] = tuple(kp_list)
-                
+        if pos == 'complete' : rois['kp_filtered_len'] = len(rois[pos]['kp'])
 
         # Create images with filtered keypoints
         rois[pos]['img_kp_filtered'] = cv2.drawKeypoints(
@@ -521,6 +538,10 @@ def load_descriptors(sift, rois):
     for pos in ['right-side','left-side','bottom','complete']:
         rois[pos]['kp'], rois[pos]['des'] = \
             sift.compute( rois[pos]['img'], rois[pos]['kp'] )
+    rois['desc_len'] = len(rois['complete']['des'])
+    rois['kp_desc_len'] = len(rois['complete']['kp'])
+        # cv2.imshow(f"rois[{pos}]['des']", rois[pos]['des'])
+        # print(rois[pos]['des'][0:2])
     
 def getall_matches(rois_1, rois_2, dratio,
                    stdev_angle, stdev_dist, show=False):
@@ -652,7 +673,7 @@ def get_matches(roipos_1, roipos_2,
     return filtered 
 
 def angle_v(x1,y1,x2,y2):
-    return math.degrees(math.atan2(-(y2-y1),(x2-x1)))
+    return math.degrees(math.atan2(-(y2-y1),(x2-x1))) # 'atan2' calculates the arctangent of the ratio of its two arguments, taking into account the signs of both to determine the correct quadrant of the angle.
 
 def distance(x1,y1,x2,y2):
     dst = math.sqrt((x2-x1)**2 + (y2-y1)**2)
@@ -730,7 +751,11 @@ def create_tables():
     c.execute('''
     CREATE TABLE IF NOT EXISTS iris (
         iris_id INTEGER PRIMARY KEY AUTOINCREMENT,
-        feature_tag TEXT UNIQUE
+        feature_tag TEXT UNIQUE,
+        kp_len INT,
+        kp_filtered_len INT,
+        desc_len INT,
+        kp_desc_len INT
     )
     ''') # add feature numbers found here
 
@@ -761,8 +786,8 @@ def insert_iris(feature_tag, feature_data):
 
     # Insert into iris table
     c.execute('''
-    INSERT INTO iris (feature_tag) VALUES (?)
-    ''', (feature_tag,))
+    INSERT INTO iris (feature_tag, kp_len, kp_filtered_len, desc_len, kp_desc_len) VALUES (?, ?, ?, ?, ?)
+    ''', (feature_tag, int(feature_data['kp_len']), int(feature_data['kp_filtered_len']), int(feature_data['desc_len']), int(feature_data['kp_desc_len'])))
     iris_id = c.lastrowid
 
     # Insert into feature tables
@@ -827,6 +852,20 @@ def retrieve_iris(iris_id):
                 'img_kp_filtered': img_kp_filtered,
                 'des': des
             }
+            
+        c.execute(f'SELECT * FROM iris WHERE iris_id = ?', (iris_id,))
+        rows = c.fetchall()
+        for row in rows:
+            # Deserialize the feature data
+            kp_len = int(row[2])
+            kp_filtered_len = int(row[3])
+            desc_len = int(row[4])
+            kp_desc_len = int(row[5])
+
+        iris_data['kp_len'] = kp_len
+        iris_data['kp_filtered_len'] = kp_filtered_len
+        iris_data['desc_len'] = desc_len
+        iris_data['kp_desc_len'] = kp_desc_len
     
     conn.close()
     return iris_data   
@@ -842,20 +881,25 @@ def print_dict_types(data):
 if __name__ == "__main__":
 
     # Specify 2 image paths
-    filepath1 = r'./S2002R20.jpg'
-    filepath2 = r'./S2002R01.jpg'
+    filepath1 = r'./S2002R01.jpg'
+    filepath2 = r'./S2002R20.jpg'
 
-    # if os.path.isfile(filepath1) and os.path.isfile(filepath2):
-    #     compare_images(filepath1, filepath2)
+    # # if os.path.isfile(filepath1) and os.path.isfile(filepath2):
+    # #     compare_images(filepath1, filepath2)
 
-    print("Analysing " + filepath1)
-    rois_1 = load_rois_from_image(filepath1)
-    print_dict_types(rois_1)
+    if 'iris_scans.db' not in os.listdir():
+        create_tables()
 
-
-    # if 'iris_scans.db' not in os.listdir():
-    #     create_tables()
+    # print("Analysing " + filepath1)
+    # rois_1 = load_rois_from_image(filepath1)
+    # # print_dict_types(rois_1)
     # insert_iris('iris_test_01', rois_1)
     
-    # data = retrieve_iris(1)
-    # print_dict_types(data)
+    # print("Analysing " + filepath2)
+    # rois_2 = load_rois_from_image(filepath2)
+    # # print_dict_types(rois_2)
+    # insert_iris('iris_test_02', rois_2)
+
+    data = retrieve_iris(1)
+    print_dict_types(data)
+    print(data['kp_len'])
