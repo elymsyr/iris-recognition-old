@@ -19,6 +19,13 @@ This project is an iris recognition system ([*See original project.*](https://gi
 - [ ] **Future Developments**: Plans to create a GUI or mobile app for dynamic and in real-time use.
 
 ## Installation
+
+For latest release:
+```
+pip install iris_recognition_system
+```
+or
+
 #### 1. Clone the repository:
 ```
 git clone https://github.com/elymsyr/iris-recognition.git
