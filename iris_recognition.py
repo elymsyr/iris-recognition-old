@@ -872,14 +872,14 @@ def retrieve_iris(db_name, feature_tag):
     conn.close()
     return iris_data
 
-def print_dict_types(data, show_value = False):
+def print_dict_types(data):
     print("Dict data:")
     for key, value in data.items():
-        print(f"  {key}")
         if type(value) == dict:
+            print(f"  {key}")
             for s_key,s_value in value.items():
                 print(f"    {s_key} : {type(s_value) if type(s_value) != tuple else {type(item) for item in s_value}}")
-                if show_value: print(f"        {s_value}")
+        else: print(f"    {key} : {type(value) if type(value) != tuple else {type(item) for item in value}}")
 
 def load_to_db(db_name, image_name, rois_id, img_path):
     rois = load_rois_from_image(img_path, False)
@@ -1019,19 +1019,10 @@ def find_best_index(false_match, true_match):
 
     return best_index, best_score
 
-if __name__ == "__main__":
-
-    # load_from_thousand()
-
-    db_name='iris_db_thousand'
-
-    results = test_parameters(db_name, test_size_diff=10, test_size_same=10)
-
+def parameter_test_for_comparison(db_name, test_size_diff=10, test_size_same=10):
+    results = test_parameters(db_name, test_size_diff=test_size_diff, test_size_same=test_size_same)
     index, score= find_best_index(results['false_match'], results['true_match'])
-    
-    print(score, index, results['false_match'][index], results['true_match'][index])
+    return index, score
 
-    # 406 22
-    # 330 25
-    # 431 23
-    # 392 22
+if __name__ == "__main__":
+    pass
