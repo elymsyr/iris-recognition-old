@@ -31,7 +31,6 @@ def compare_binfiles(bin_path1, bin_path2):
 
     getall_matches(rois_1, rois_2, 0.88, 10, 0.07, show=True)
 
-@counter
 def load_rois_from_image(filepath: str, show = True):
     img = load_image(filepath, show) # show=True
     print(f"\nImage loaded -> {(filepath.split('/'))[-3:]}")
@@ -64,7 +63,6 @@ def load_image(filepath, show=False):
         cv2.destroyAllWindows()
     return img
 
-@counter
 def get_iris_boundaries(img, show=False):
     # Finding iris inner boundary
     pupil_circle = find_pupil(img)
@@ -101,7 +99,6 @@ def get_iris_boundaries(img, show=False):
 
     return pupil_circle, ext_iris_circle
 
-@counter
 def find_pupil(img):
     def get_edges(image):
         edges = cv2.Canny(image,20,100)
@@ -167,7 +164,6 @@ def get_mean_circle(circles, draw=None):
 
     return mean_0, mean_1, mean_2
 
-@counter
 def find_ext_iris(img, pupil_circle, center_range, radius_range):
     def get_edges(image, thrs2):
         thrs1 = 0 # 0
@@ -324,7 +320,6 @@ def draw_circles(cimg, pupil_circle, ext_iris_circle,
     cv2.circle(cimg, (ext_iris_circle[0], ext_iris_circle[1]),
                1,(0,255,0),1)
 
-@counter
 def get_equalized_iris(img, ext_iris_circle, pupil_circle, show=False):
     def find_roi():
         mask = img.copy()
@@ -371,7 +366,6 @@ def get_equalized_iris(img, ext_iris_circle, pupil_circle, show=False):
 
     return roi
 
-@counter
 def get_rois(img, pupil_circle, ext_circle, show=False):
     bg = img.copy()
     bg[:] = 0
@@ -462,7 +456,6 @@ def get_rois(img, pupil_circle, ext_circle, show=False):
 
     return rois
 
-@counter
 def load_keypoints(sift, rois, show=False):
     bf = cv2.BFMatcher()
 
@@ -551,7 +544,6 @@ def load_keypoints(sift, rois, show=False):
             i+=1
         plt.show()
 
-@counter
 def load_descriptors(sift, rois):
     for pos in ['right-side','left-side','bottom','complete']:
         rois[pos]['kp'], rois[pos]['des'] = \
@@ -984,7 +976,7 @@ def get_random_row_with_id(db_name, id):
     conn.close()
     return random_row
 
-def test_parameters(db_name, test_size_diff = 10, test_size_same = 10, dratio_list = [0.9, 0.95, 0.8, 0.75, 0.7], stdev_angle_list = [10, 20, 5, 25], stdev_dist_list = [0.10, 0.15, 0.20, 0.30]):
+def test_parameters(db_name, db_size, test_size_diff = 10, test_size_same = 10, dratio_list = [0.9, 0.95, 0.8, 0.75, 0.7], stdev_angle_list = [10, 20, 5, 25], stdev_dist_list = [0.10, 0.15, 0.20, 0.30]):
     possible_parameters = []
 
     for dratio in dratio_list:
@@ -1009,7 +1001,7 @@ def test_parameters(db_name, test_size_diff = 10, test_size_same = 10, dratio_li
         for test_id in range(test_size_diff):
             try:
                 new_test = {}
-                number_list = list(range(6))
+                number_list = list(range(db_size))
                 first_class = random.choice(number_list)
                 number_list.remove(first_class)
                 second_class = random.choice(number_list)
