@@ -23,24 +23,24 @@ def compare_binfiles(bin_path1, bin_path2):
 
     getall_matches(rois_1, rois_2, 0.88, 10, 0.07, show=True)
 
-def load_rois_from_image(filepath):
+def load_rois_from_image(filepath: str, show = True):
     img = load_image(filepath) # show=True
 
-    print("Getting iris boundaries..")
-    pupil_circle, ext_iris_circle = get_iris_boundaries(img, show=True) # Getting iris boundaries includes outer and inner boundary.
+    print(f"Getting iris boundaries -> {(filepath.split('/'))[-3:]}")
+    pupil_circle, ext_iris_circle = get_iris_boundaries(img, show=show) # Getting iris boundaries includes outer and inner boundary.
     if not pupil_circle or not ext_iris_circle:
         print("Error finding iris boundaries!")
         return
 
     print("Equalizing histogram ..")
-    roi = get_equalized_iris(img, ext_iris_circle, pupil_circle, show=True)
+    roi = get_equalized_iris(img, ext_iris_circle, pupil_circle, show=show)
 
     print("Getting roi iris images ...")
-    rois = get_rois(roi, pupil_circle, ext_iris_circle, show=True)
+    rois = get_rois(roi, pupil_circle, ext_iris_circle, show=show)
 
     print("Searching for keypoints ... \n")
     sift = cv2.SIFT_create()
-    load_keypoints(sift, rois, show=True)
+    load_keypoints(sift, rois, show=show)
     load_descriptors(sift, rois)  
 
     return rois
@@ -878,49 +878,25 @@ def print_dict_types(data):
             for s_key,s_value in value.items():
                 print(f"    {s_key} : {type(s_value) if type(s_value) != tuple else {type(item) for item in s_value}}")    
 
-def load_to_db(self, folder, db_name, rois_id):
-    if 'iris_scans.db' not in os.listdir():
+def load_to_db(folder, db_name, rois_id, img_path):
+    if f'{db_name}.db' not in os.listdir():
         create_tables(db_name)
-    for image in os.listdir(folder):
-        rois = load_rois_from_image(image)
-        insert_iris(rois_id, rois)
+    rois = load_rois_from_image(img_path, False)
+    insert_iris(rois_id, rois)
         
 def load_from_thousand():
     path = r'IrisDB/casia-iris-thousand-500mb/CASIA-Iris-Thousand/'
-    number = 0
-    img = 0
-    for id in os.listdir(path):
-        print(f'checking {id}...')
-        number+= 1
-        for image in os.listdir(path+f"{id}/R")+os.listdir(path+f"{id}/L"):
-        #    print(image)
-           img+= 1
-    print(number)
-    print(img)
+    for id in range(0,1000):
+        id_text = str(id).strip()
+        while len(id_text) < 3:
+            id_text = f"0{id_text}"
+        print(f'checking {id_text}...')
+        for image in os.listdir(path+f"{id_text}/R"):
+            iris_path = path+f"{id_text}/R/{image}"
+            rois = load_rois_from_image(iris_path)
+
 
 if __name__ == "__main__":
 
-    path1 = r'IrisDB/casia-iris-thousand-500mb/CASIA-Iris-Thousand/000/L'
-    path1 = r'IrisDB/casia-iris-thousand-500mb/CASIA-Iris-Thousand/000/R'
-
-    load_from_thousand()
-
-
-
-
-    # # if os.path.isfile(filepath1) and os.path.isfile(filepath2):
-    # #     compare_images(filepath1, filepath2)
-
-    # print("Analysing " + filepath1)
-    # rois_1 = load_rois_from_image(filepath1)
-    # # print_dict_types(rois_1)
-    # insert_iris('iris_test_01', rois_1)
-    
-    # print("Analysing " + filepath2)
-    # rois_2 = load_rois_from_image(filepath2)
-    # # print_dict_types(rois_2)
-    # insert_iris('iris_test_02', rois_2)
-
-    # data = retrieve_iris(1)
-    # print_dict_types(data)
-    # print(data['kp_len'])
+    # load_from_thousand()
+    rois = load_rois_from_image(r'IrisDB/test-data/Test/S2005R09.jpg')
