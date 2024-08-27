@@ -36,7 +36,7 @@ pip install -r requirements.txt
 ```
 
 ## Usage
-See [recognizer_system.py](recognizer_system.py).
+See [iris_recognition.py](iris_recognition.py).
 
 ## Contributing
 Contributions are welcome! Please submit a pull request with your changes or improvements. Ensure that you follow the project's coding standards and provide relevant documentation. See the [CONTRIBUTING](CONTRIBUTING.md) file for details.
