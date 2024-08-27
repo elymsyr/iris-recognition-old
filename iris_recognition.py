@@ -24,32 +24,34 @@ def compare_binfiles(bin_path1, bin_path2):
     getall_matches(rois_1, rois_2, 0.88, 10, 0.07, show=True)
 
 def load_rois_from_image(filepath: str, show = True):
-    img = load_image(filepath) # show=True
+    img = load_image(filepath, show) # show=True
+    print(f"\nImage loaded -> {(filepath.split('/'))[-3:]}")
 
-    print(f"Getting iris boundaries -> {(filepath.split('/'))[-3:]}")
+    print(f"Getting iris boundaries ...")
     pupil_circle, ext_iris_circle = get_iris_boundaries(img, show=show) # Getting iris boundaries includes outer and inner boundary.
     if not pupil_circle or not ext_iris_circle:
         print("Error finding iris boundaries!")
         return
 
-    print("Equalizing histogram ..")
+    print("Equalizing histogram ...")
     roi = get_equalized_iris(img, ext_iris_circle, pupil_circle, show=show)
 
     print("Getting roi iris images ...")
     rois = get_rois(roi, pupil_circle, ext_iris_circle, show=show)
 
-    print("Searching for keypoints ... \n")
+    print("Searching for keypoints ...")
     sift = cv2.SIFT_create()
     load_keypoints(sift, rois, show=show)
     load_descriptors(sift, rois)  
 
+    print(f"Rois completed for {(filepath.split('/'))[-1].replace('.jpg', '')}.")
     return rois
 
 def load_image(filepath, show=False):
     img = cv2.imread(filepath, 0)
     if show:
         cv2.imshow(filepath, img)
-        ch = cv2.waitKey(0)
+        if cv2.waitKey(10000): pass
         cv2.destroyAllWindows()
     return img
 
@@ -84,7 +86,7 @@ def get_iris_boundaries(img, show=False):
         draw_circles(cimg, pupil_circle, ext_iris_circle,
                      center_range, radius_range)
         cv2.imshow('iris boundaries', cimg)
-        ch = cv2.waitKey(0)
+        if cv2.waitKey(10000): pass
         cv2.destroyAllWindows()
 
     return pupil_circle, ext_iris_circle
@@ -118,7 +120,6 @@ def find_pupil(img):
             # Canny Edges
             edges = get_edges(thres)
             # cv2.imshow("edges",edges)
-            # cv2.waitKey(100000000)
             # HoughCircles
             circles = cv2.HoughCircles(edges, cv2.HOUGH_GRADIENT, 1, 1,np.array([]), param1, param2)    
             if circles is not None and circles.size > 0:
@@ -150,8 +151,8 @@ def get_mean_circle(circles, draw=None):
         # draw the center of the circle
         cv2.circle(draw,(mean_0,mean_1),2,(0,255,0),2)
         cv2.imshow('mean circle', draw)
-        ch = cv2.waitKey(0)
-        cv2.destroyAllWindows() 
+        if cv2.waitKey(10000): pass
+        cv2.destroyAllWindows()
     
     return mean_0, mean_1, mean_2
     
@@ -284,7 +285,7 @@ def filtered_circles(circles, draw=None):
         cv2.imshow('filtered_circles() total={0} filtered_pos={1} filtered={2}'.\
                    format(len(circles), len(filtered_pos), len(filtered)),
                    draw)
-        ch = cv2.waitKey(0)
+        if cv2.waitKey(10000): pass
         cv2.destroyAllWindows()
     return filtered
 
@@ -351,7 +352,7 @@ def get_equalized_iris(img, ext_iris_circle, pupil_circle, show=False):
 
     if show:
         cv2.imshow('equalized histogram iris region', roi) # cv2.imshow('roi-addWeighted', roi) # see roi
-        ch = cv2.waitKey(0)
+        if cv2.waitKey(10000): pass
         cv2.destroyAllWindows()
 
     return roi
@@ -569,7 +570,7 @@ def getall_matches(rois_1, rois_2, dratio,
 
             img_matches.append(crt_image)
             cv2.imshow('matches', crt_image)
-            ch = cv2.waitKey(0)
+            if cv2.waitKey(10000): pass
             cv2.destroyAllWindows()
 
     return numberof_matches
@@ -750,8 +751,8 @@ def create_tables(db_name):
     # Create iris table
     c.execute('''
     CREATE TABLE IF NOT EXISTS iris (
-        iris_id INTEGER PRIMARY KEY AUTOINCREMENT,
-        feature_tag TEXT UNIQUE,
+        feature_tag TEXT PRIMARY KEY,
+        iris_id INTEGER,
         kp_len INT,
         kp_filtered_len INT,
         desc_len INT,
@@ -764,7 +765,7 @@ def create_tables(db_name):
     for table_name in feature_tables:
         c.execute(f'''
         CREATE TABLE IF NOT EXISTS {table_name} (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            feature_tag TEXT PRIMARY KEY,
             iris_id INTEGER,
             img BLOB,
             pupil_circle BLOB,
@@ -780,15 +781,14 @@ def create_tables(db_name):
     conn.commit()
     conn.close()
 
-def insert_iris(db_name, feature_tag, feature_data):
+def insert_iris(db_name, feature_tag, iris_id, feature_data):
     conn = sqlite3.connect(f'{db_name}.db')
     c = conn.cursor()
 
     # Insert into iris table
     c.execute('''
-    INSERT INTO iris (feature_tag, kp_len, kp_filtered_len, desc_len, kp_desc_len) VALUES (?, ?, ?, ?, ?)
-    ''', (feature_tag, int(feature_data['kp_len']), int(feature_data['kp_filtered_len']), int(feature_data['desc_len']), int(feature_data['kp_desc_len'])))
-    iris_id = c.lastrowid
+    INSERT INTO iris (iris_id, feature_tag, kp_len, kp_filtered_len, desc_len, kp_desc_len) VALUES (?, ?, ?, ?, ?, ?)
+    ''', (iris_id, feature_tag, int(feature_data['kp_len']), int(feature_data['kp_filtered_len']), int(feature_data['desc_len']), int(feature_data['kp_desc_len'])))
 
     # Insert into feature tables
     feature_tables = ['right_side', 'left_side', 'bottom', 'complete']
@@ -800,10 +800,11 @@ def insert_iris(db_name, feature_tag, feature_data):
             serialized_kp = pickle.dumps(serialize_keypoints(data['kp']))
 
             c.execute(f'''
-            INSERT INTO {table_name} (iris_id, img, pupil_circle, ext_circle, kp, img_kp_init, img_kp_filtered, des)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO {table_name} (iris_id, feature_tag, img, pupil_circle, ext_circle, kp, img_kp_init, img_kp_filtered, des)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 iris_id,
+                feature_tag,
                 pickle.dumps(data['img']),
                 serialized_pupil_circle,
                 serialized_ext_circle,
@@ -815,6 +816,7 @@ def insert_iris(db_name, feature_tag, feature_data):
 
     conn.commit()
     conn.close()
+    print(f'Iris {feature_tag} is inserted to {db_name}...')
 
 def retrieve_iris(db_name, iris_id):
     conn = sqlite3.connect(f'{db_name}.db')
@@ -878,25 +880,34 @@ def print_dict_types(data):
             for s_key,s_value in value.items():
                 print(f"    {s_key} : {type(s_value) if type(s_value) != tuple else {type(item) for item in s_value}}")    
 
-def load_to_db(folder, db_name, rois_id, img_path):
-    if f'{db_name}.db' not in os.listdir():
-        create_tables(db_name)
+def load_to_db(db_name, image_name, rois_id, img_path):
     rois = load_rois_from_image(img_path, False)
-    insert_iris(rois_id, rois)
-        
+    insert_iris(db_name, image_name, rois_id, rois)
+
 def load_from_thousand():
+    db_name = 'iris_db_thousand'
+    if f'{db_name}.db' not in os.listdir():
+        create_tables(db_name)    
     path = r'IrisDB/casia-iris-thousand-500mb/CASIA-Iris-Thousand/'
     for id in range(0,1000):
         id_text = str(id).strip()
         while len(id_text) < 3:
             id_text = f"0{id_text}"
-        print(f'checking {id_text}...')
+        print(f'\nChecking {id_text}...\n')
         for image in os.listdir(path+f"{id_text}/R"):
             iris_path = path+f"{id_text}/R/{image}"
-            rois = load_rois_from_image(iris_path)
+            image_name = image.replace('.jpg','')
+            if check_if_not_exists(db_name, image_name):
+                load_to_db(db_name, image_name, id, iris_path)
+            else: print(f'{image_name} found in db.')
 
+def check_if_not_exists(db_name, feature_tag):
+    conn = sqlite3.connect(f'{db_name}.db')
+    cursor = conn.cursor()
+    cursor.execute("SELECT 1 FROM iris WHERE feature_tag = ?", (feature_tag,))
+    return cursor.fetchone() is None
 
 if __name__ == "__main__":
 
-    # load_from_thousand()
-    rois = load_rois_from_image(r'IrisDB/test-data/Test/S2005R09.jpg')
+    load_from_thousand()
+    # rois = load_rois_from_image(r'IrisDB/test-data/Test/S2005R09.jpg')
