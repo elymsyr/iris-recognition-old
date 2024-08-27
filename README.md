@@ -15,7 +15,7 @@ This project is an iris recognition system ([*See original project.*](https://gi
 - [ ] **Improved Iris Analysis**: Improving analyze speed and extraction of features from iris images and creating a dictionary for recognition.
 - [ ] **Performance Improvements**: Enhancements for recognition performance and speed, especially under suboptimal camera conditions.
 - [x] **Database Integration**: Save and retrieve iris data using a database.
-  - [ ] Optimization for fast query
+  - [ ] Optimization for fast query.
 - [ ] **Future Developments**: Plans to create a GUI or mobile app for dynamic and in real-time use.
 
 ## Installation
@@ -36,7 +36,7 @@ pip install -r requirements.txt
 ```
 
 ## Usage
-*Will be updated...*
+See [recognizer_system.py](recognizer_system.py).
 
 ## Contributing
 Contributions are welcome! Please submit a pull request with your changes or improvements. Ensure that you follow the project's coding standards and provide relevant documentation. See the [CONTRIBUTING](CONTRIBUTING.md) file for details.
