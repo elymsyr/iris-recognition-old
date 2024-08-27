@@ -1,6 +1,6 @@
 import numpy as np
 import cv2, sqlite3, os
-import math, random, pickle, copy, gzip, inspect
+import math, random, pickle, copy, gzip, inspect, json
 
 from matplotlib import pyplot as plt
 
@@ -8,16 +8,16 @@ from matplotlib import pyplot as plt
 def compare_images(filepath1, filepath2):
     print("Analysing " + filepath1)
     rois_1 = load_rois_from_image(filepath1)
-    
+
     print("Analysing " + filepath2)
     rois_2 = load_rois_from_image(filepath2)
-    
+
     getall_matches(rois_1, rois_2, 0.8, 10, 0.15, show=True)
 
 def compare_binfiles(bin_path1, bin_path2):
     print("Analysing " + bin_path1)
     rois_1 = load_rois_from_bin(bin_path1)
-    
+
     print("Analysing " + bin_path2)
     rois_2 = load_rois_from_bin(bin_path2)
 
@@ -42,7 +42,7 @@ def load_rois_from_image(filepath: str, show = True):
     print("Searching for keypoints ...")
     sift = cv2.SIFT_create()
     load_keypoints(sift, rois, show=show)
-    load_descriptors(sift, rois)  
+    load_descriptors(sift, rois)
 
     print(f"Rois completed for {(filepath.split('/'))[-1].replace('.jpg', '')}.")
     return rois
@@ -66,21 +66,21 @@ def get_iris_boundaries(img, show=False):
     # Finding iris outer boundary
     radius_range = int(math.ceil(pupil_circle[2]*1.5))
     multiplier = 0.25
-    center_range = int(math.ceil(pupil_circle[2]*multiplier)) 
+    center_range = int(math.ceil(pupil_circle[2]*multiplier))
     ext_iris_circle = find_ext_iris(
                         img, pupil_circle, center_range, radius_range)
 
     while(not ext_iris_circle and multiplier <= 0.7):
         multiplier += 0.05
         print('Searching exterior iris circle with multiplier ' + str(multiplier))
-              
+
         center_range = int(math.ceil(pupil_circle[2]*multiplier))
         ext_iris_circle = find_ext_iris(img, pupil_circle,
                                         center_range, radius_range)
     if not ext_iris_circle:
         print('ERROR: Exterior iris circle not found!')
         return None, None
-    
+
     if show:
         cimg = cv2.cvtColor(img,cv2.COLOR_GRAY2BGR)
         draw_circles(cimg, pupil_circle, ext_iris_circle,
@@ -121,7 +121,7 @@ def find_pupil(img):
             edges = get_edges(thres)
             # cv2.imshow("edges",edges)
             # HoughCircles
-            circles = cv2.HoughCircles(edges, cv2.HOUGH_GRADIENT, 1, 1,np.array([]), param1, param2)    
+            circles = cv2.HoughCircles(edges, cv2.HOUGH_GRADIENT, 1, 1,np.array([]), param1, param2)
             if circles is not None and circles.size > 0:
                 # convert the (x, y) coordinates and radius of the circles to integers
                 circles = np.round(circles[0, :]).astype("int")
@@ -153,9 +153,9 @@ def get_mean_circle(circles, draw=None):
         cv2.imshow('mean circle', draw)
         if cv2.waitKey(10000): pass
         cv2.destroyAllWindows()
-    
+
     return mean_0, mean_1, mean_2
-    
+
 def find_ext_iris(img, pupil_circle, center_range, radius_range):
     def get_edges(image, thrs2):
         thrs1 = 0 # 0
@@ -179,9 +179,9 @@ def find_ext_iris(img, pupil_circle, center_range, radius_range):
 
             # HoughCircles
             circles = cv2.HoughCircles(edges, cv2.HOUGH_GRADIENT, 1, 1,
-                                       np.array([]), 200, hough_param)                
+                                       np.array([]), 200, hough_param)
             if circles is not None and circles.size > 0:
-                # convert the (x, y) coordinates and radius of the 
+                # convert the (x, y) coordinates and radius of the
                 # circles to integers
                 circles = np.round(circles[0, :]).astype("int")
                 for (c_col, c_row, r) in circles:
@@ -221,7 +221,7 @@ def find_ext_iris(img, pupil_circle, center_range, radius_range):
 
 def point_in_circle(c_col, c_row, c_radius, p_col, p_row):
     return distance(c_col, c_row, p_col, p_row) <= c_radius
-    
+
 def filtered_circles(circles, draw=None):
     # what if there are only 2 circles - which is alpha?
     def get_alpha_radius(circles0):
@@ -246,7 +246,7 @@ def filtered_circles(circles, draw=None):
     filtered = []
     filtered_pos = []
     not_filtered = []
-    ratio = 1.5 
+    ratio = 1.5
     for c in circles[:]:
         if c[0] < c_0_mean - ratio*c_0_dev or \
            c[0] > c_0_mean + ratio*c_0_dev or \
@@ -305,26 +305,26 @@ def draw_circles(cimg, pupil_circle, ext_iris_circle,
         cv2.circle(cimg,(pupil_circle[0], pupil_circle[1]), radius_range,
                          (0,255,255),1)
     # draw the outer ext iris circle
-    cv2.circle(cimg, (ext_iris_circle[0], ext_iris_circle[1]), 
+    cv2.circle(cimg, (ext_iris_circle[0], ext_iris_circle[1]),
                ext_iris_circle[2],(0,255,0),1)
     # draw the center of the ext iris circle
-    cv2.circle(cimg, (ext_iris_circle[0], ext_iris_circle[1]), 
+    cv2.circle(cimg, (ext_iris_circle[0], ext_iris_circle[1]),
                1,(0,255,0),1)
-    
+
 def get_equalized_iris(img, ext_iris_circle, pupil_circle, show=False):
     def find_roi():
         mask = img.copy()
         mask[:] = (0)
 
-        cv2.circle(mask, 
-                   (ext_iris_circle[0], ext_iris_circle[1]), 
+        cv2.circle(mask,
+                   (ext_iris_circle[0], ext_iris_circle[1]),
                    ext_iris_circle[2], (255), -1)
         cv2.circle(mask,
                    (pupil_circle[0],pupil_circle[1]),
                    pupil_circle[2],(0), -1)
-        
+
         # cv2.imshow('mask iris', mask) # mask for boundaries
-        
+
         roi = cv2.bitwise_and(img, mask)
 
         return roi
@@ -336,7 +336,7 @@ def get_equalized_iris(img, ext_iris_circle, pupil_circle, show=False):
     # Mask the top side of the iris
     for p_col in range(roi.shape[1]):
         for p_row in range(roi.shape[0]):
-            theta = angle_v(ext_iris_circle[0], ext_iris_circle[1], 
+            theta = angle_v(ext_iris_circle[0], ext_iris_circle[1],
                             p_col, p_row)
             if theta > 50 and theta < 130:
                 roi[p_row,p_col] = 0 # crop from mask between degrees 50 and 130 to avoid eyelashes
@@ -344,7 +344,7 @@ def get_equalized_iris(img, ext_iris_circle, pupil_circle, show=False):
     ret, roi = cv2.threshold(roi,50,255,cv2.THRESH_TOZERO)
 
     # cv2.imshow('roi-top', roi) # see roi
-    
+
     equ_roi = roi.copy()
     cv2.equalizeHist(roi, equ_roi) # Histogram equalization is a method in image processing of CONTRAST ADJUSMENT using the image’s histogram.
     # cv2.imshow('roi-equalizeHist', roi) # see roi
@@ -356,7 +356,7 @@ def get_equalized_iris(img, ext_iris_circle, pupil_circle, show=False):
         cv2.destroyAllWindows()
 
     return roi
-    
+
 def get_rois(img, pupil_circle, ext_circle, show=False):
     bg = img.copy()
     bg[:] = 0
@@ -397,16 +397,16 @@ def get_rois(img, pupil_circle, ext_circle, show=False):
     rois['right-side']['ext_circle'] = \
             (0, int(1.25*ext_circle[2]), int(ext_circle[2]))
     rois['left-side']['ext_circle'] = \
-            (int(1.25*ext_circle[2]), 
-             int(1.25*ext_circle[2]), 
+            (int(1.25*ext_circle[2]),
+             int(1.25*ext_circle[2]),
              int(ext_circle[2]))
     rois['bottom']['ext_circle'] = \
             (int(1.25*ext_circle[2]), 0, int(ext_circle[2]))
     rois['complete']['ext_circle'] = \
-            (int(1.25*ext_circle[2]), 
+            (int(1.25*ext_circle[2]),
              int(1.25*ext_circle[2]),
              int(ext_circle[2]))
-    
+
     # cv2.imshow("rois['right-side']['img'] Before", rois['right-side']['img'])
     for pos in ['right-side','left-side','bottom','complete']:
         tx = rois[pos]['ext_circle'][0] - ext_circle[0]
@@ -422,9 +422,9 @@ def get_rois(img, pupil_circle, ext_circle, show=False):
 
     # print(type(rois['right-side']['img']), type(ext_circle))
     # print(rois['right-side']['img'].shape, ext_circle[2])
-    
+
     # cv2.imshow("rois['right-side']['img'] Before", rois['right-side']['img'])
-    
+
     rois['right-side']['img'] = rois['right-side']['img'][0:int(2.5*ext_circle[2]), 0:int(1.25*ext_circle[2])]
     rois['left-side']['img'] = rois['left-side']['img'][0:int(2.5*ext_circle[2]), 0:int(1.25*ext_circle[2])]
     rois['bottom']['img'] = rois['bottom']['img'][0:int(1.25*ext_circle[2]), 0:int(2.5*ext_circle[2])]
@@ -447,11 +447,11 @@ def get_rois(img, pupil_circle, ext_circle, show=False):
 
     return rois
 
-def load_keypoints(sift, rois, show=False):    
+def load_keypoints(sift, rois, show=False):
     bf = cv2.BFMatcher()
-    
-    
-    for pos in ['right-side','left-side','bottom','complete']:        
+
+
+    for pos in ['right-side','left-side','bottom','complete']:
         # cv2.imshow(f"rois['{pos}']['img_kp_init'] Before", rois[pos]['img_kp_init'])
         rois[pos]['kp'] = sift.detect(rois[pos]['img'],None)
         # for i, kp in enumerate(rois[pos]['kp'][0:2]):
@@ -543,7 +543,7 @@ def load_descriptors(sift, rois):
     rois['kp_desc_len'] = len(rois['complete']['kp'])
         # cv2.imshow(f"rois[{pos}]['des']", rois[pos]['des'])
         # print(rois[pos]['des'][0:2])
-    
+
 def getall_matches(rois_1, rois_2, dratio,
                    stdev_angle, stdev_dist, show=False):
     img_matches = []
@@ -558,9 +558,9 @@ def getall_matches(rois_1, rois_2, dratio,
             print(" -->", pos, len(rois_1[pos]['kp']), len(rois_2[pos]['kp']))
         else:
             matches = get_matches(rois_1[pos], rois_2[pos],
-                                   dratio, stdev_angle, stdev_dist)        
+                                   dratio, stdev_angle, stdev_dist)
             numberof_matches[pos] = len(matches)
-            
+
         if show:
             print("{0} matches: {1}".format(pos, str(len(matches))))
             crt_image = cv2.drawMatchesKnn(
@@ -576,7 +576,7 @@ def getall_matches(rois_1, rois_2, dratio,
     return numberof_matches
 
 def get_matches(roipos_1, roipos_2,
-                dratio, stdev_angle, stdev_dist):    
+                dratio, stdev_angle, stdev_dist):
     if not roipos_1['kp'] or not roipos_2['kp']:
         print("KeyPoints not found in one of roipos_x['kp'] !!!")
         return []
@@ -595,7 +595,7 @@ def get_matches(roipos_1, roipos_2,
     for m,n in matches:
         if (m.distance/n.distance) > dratio:
             continue
-        
+
         x1,y1 = kp1[m.queryIdx].pt
         x2,y2 = kp2[m.trainIdx].pt
 
@@ -615,7 +615,7 @@ def get_matches(roipos_1, roipos_2,
                           roipos_1['pupil_circle'][1])
         dist_1 = dist_1 - roipos_1['pupil_circle'][2]
         dist_1 = dist_1 / diff_dist_1
-        
+
         dist_2 = distance(x2,y2,
                           roipos_2['pupil_circle'][0],
                           roipos_2['pupil_circle'][1])
@@ -624,7 +624,7 @@ def get_matches(roipos_1, roipos_2,
 
         diff_dist = dist_1 - dist_2
         diff_dists.append(diff_dist)
-        
+
         filtered.append(m)
 
     # Remove bad matches
@@ -655,7 +655,7 @@ def get_matches(roipos_1, roipos_2,
                               roipos_1['pupil_circle'][1])
             dist_1 = dist_1 - roipos_1['pupil_circle'][2]
             dist_1 = dist_1 / diff_dist_1
-        
+
             dist_2 = distance(x2,y2,
                               roipos_2['pupil_circle'][0],
                               roipos_2['pupil_circle'][1])
@@ -665,13 +665,13 @@ def get_matches(roipos_1, roipos_2,
             diff_dist = dist_1 - dist_2
             good_dist = (diff_dist > median_diff_dist - stdev_dist and \
                          diff_dist < median_diff_dist + stdev_dist)
-                
+
             if good_diff_angle and good_dist:
                 continue
 
             filtered.remove(m)
 
-    return filtered 
+    return filtered
 
 def angle_v(x1,y1,x2,y2):
     return math.degrees(math.atan2(-(y2-y1),(x2-x1))) # 'atan2' calculates the arctangent of the ratio of its two arguments, taking into account the signs of both to determine the correct quadrant of the angle.
@@ -700,7 +700,7 @@ def standard_dev(x):
     for i in range(len(x)):
         sumsq += (x[i] - m) ** 2
     return m, math.sqrt(sumsq/len(x))
-    
+
 def load_rois_from_bin(bin_path):
     with gzip.open(bin_path, 'rb') as bin_file:
         rois = pickle.load(bin_file)
@@ -719,7 +719,7 @@ def unpickle_keypoints(array):
                                _octave=point[4], _class_id=point[5])
         keypoints.append(temp_kp)
     return keypoints
-        
+
 def pickle_rois(rois):
     for pos in ['right-side','left-side','bottom','complete']:
         rois[pos]['kp'] = pickle_keypoints(rois[pos]['kp'])
@@ -740,7 +740,7 @@ def serialize_keypoints(keypoints):
 
 def deserialize_keypoints(serialized_keypoints):
     """Convert serialized keypoints back to list of cv2.KeyPoint objects."""
-    return [cv2.KeyPoint(x, y, size, angle, response, octave, class_id) 
+    return [cv2.KeyPoint(x, y, size, angle, response, octave, class_id)
             for (x, y, size, angle, response, octave, class_id) in serialized_keypoints]
 
 
@@ -818,19 +818,19 @@ def insert_iris(db_name, feature_tag, iris_id, feature_data):
     conn.close()
     print(f'Iris {feature_tag} is inserted to {db_name}...')
 
-def retrieve_iris(db_name, iris_id):
+def retrieve_iris(db_name, feature_tag):
     conn = sqlite3.connect(f'{db_name}.db')
     c = conn.cursor()
 
     # Retrieve from iris table
-    c.execute('SELECT * FROM iris WHERE iris_id = ?', (iris_id,))
+    c.execute('SELECT * FROM iris WHERE feature_tag = ?', (feature_tag,))
     iris_metadata = c.fetchone()
 
     feature_tables = ['right_side', 'left_side', 'bottom', 'complete']
     iris_data = {'iris_metadata': iris_metadata}
 
     for table_name in feature_tables:
-        c.execute(f'SELECT * FROM {table_name} WHERE iris_id = ?', (iris_id,))
+        c.execute(f'SELECT * FROM {table_name} WHERE feature_tag = ?', (feature_tag,))
         rows = c.fetchall()
         for row in rows:
             # Deserialize the feature data
@@ -841,10 +841,10 @@ def retrieve_iris(db_name, iris_id):
             img_kp_init = pickle.loads(row[6])
             img_kp_filtered = pickle.loads(row[7])
             des = pickle.loads(row[8])
-            
+
             # Convert keypoints back
             kp = deserialize_keypoints(kp)
-            
+
             iris_data[table_name.replace('_', '-')] = {
                 'img': img,
                 'pupil_circle': pupil_circle,
@@ -854,8 +854,8 @@ def retrieve_iris(db_name, iris_id):
                 'img_kp_filtered': img_kp_filtered,
                 'des': des
             }
-            
-        c.execute(f'SELECT * FROM iris WHERE iris_id = ?', (iris_id,))
+
+        c.execute(f'SELECT * FROM iris WHERE feature_tag = ?', (feature_tag,))
         rows = c.fetchall()
         for row in rows:
             # Deserialize the feature data
@@ -868,17 +868,18 @@ def retrieve_iris(db_name, iris_id):
         iris_data['kp_filtered_len'] = kp_filtered_len
         iris_data['desc_len'] = desc_len
         iris_data['kp_desc_len'] = kp_desc_len
-    
-    conn.close()
-    return iris_data   
 
-def print_dict_types(data):
+    conn.close()
+    return iris_data
+
+def print_dict_types(data, show_value = False):
     print("Dict data:")
     for key, value in data.items():
         print(f"  {key}")
         if type(value) == dict:
             for s_key,s_value in value.items():
-                print(f"    {s_key} : {type(s_value) if type(s_value) != tuple else {type(item) for item in s_value}}")    
+                print(f"    {s_key} : {type(s_value) if type(s_value) != tuple else {type(item) for item in s_value}}")
+                if show_value: print(f"        {s_value}")
 
 def load_to_db(db_name, image_name, rois_id, img_path):
     rois = load_rois_from_image(img_path, False)
@@ -887,7 +888,7 @@ def load_to_db(db_name, image_name, rois_id, img_path):
 def load_from_thousand():
     db_name = 'iris_db_thousand'
     if f'{db_name}.db' not in os.listdir():
-        create_tables(db_name)    
+        create_tables(db_name)
     path = r'IrisDB/casia-iris-thousand-500mb/CASIA-Iris-Thousand/'
     for id in range(0,1000):
         id_text = str(id).strip()
@@ -907,7 +908,108 @@ def check_if_not_exists(db_name, feature_tag):
     cursor.execute("SELECT 1 FROM iris WHERE feature_tag = ?", (feature_tag,))
     return cursor.fetchone() is None
 
+def compare_retireved_images(db_name, image_tag_1=None, image_tag_2=None, rois_1 = None, rois_2 = None, dratio = 0.8, stdev_angle = 10, stdev_dist = 0.15, show = False):
+
+    print(f"Analysing {image_tag_1} {image_tag_2}...")
+    if not rois_1 and image_tag_1: rois_1 = retrieve_iris(db_name, image_tag_1)
+    if not rois_2 and image_tag_2: rois_2 = retrieve_iris(db_name, image_tag_2)
+    return getall_matches(rois_1=rois_1, rois_2=rois_2, dratio=dratio, stdev_angle=stdev_angle, stdev_dist=stdev_dist, show=show)
+
+def get_random_row_with_id(db_name, id):
+    conn = sqlite3.connect(f'{db_name}.db')
+    cursor = conn.cursor()
+
+    # Query to select a random row where feature_tag is 'x'
+    query = """
+    SELECT * FROM complete
+    WHERE iris_id = ?
+    ORDER BY RANDOM()
+    LIMIT 1;
+    """
+
+    # Execute the query
+    cursor.execute(query, (id,))
+
+    # Fetch the result
+    random_row = cursor.fetchone()
+
+    # Close the connection
+    conn.close()
+    return random_row
+
+def test_parameters(db_name, test_size_diff = 10, test_size_same = 10, dratio_list = [0.9, 0.95, 0.8, 0.75, 0.7], stdev_angle_list = [10, 20, 5, 25], stdev_dist_list = [0.10, 0.15, 0.20, 0.30]):
+    possible_parameters = []
+
+    for dratio in dratio_list:
+        for stdev_angle in stdev_angle_list:
+            for stdev_dist in stdev_dist_list:
+                possible_parameters.append({'dratio': dratio, 'stdev_angle': stdev_angle, 'stdev_dist': stdev_dist})
+
+    results_dif = {}
+    results_same = {}
+    
+    param_dict = {}
+    param_dict['false_match'] = {}
+    param_dict['true_match'] = {}
+    param_dict['parameters'] = {}
+
+    for param_id, parameter in enumerate(possible_parameters):
+        param_dict['parameters'][param_id] = parameter
+        results_dif[param_id] = {}
+        results_same[param_id] = {}
+        param_dict['false_match'][param_id] = []
+        param_dict['true_match'][param_id] = []        
+        for test_id in range(test_size_diff):
+            try:
+                new_test = {}
+                number_list = list(range(6))
+                first_class = random.choice(number_list)
+                number_list.remove(first_class)
+                second_class = random.choice(number_list)
+                rois_1 = get_random_row_with_id(db_name, first_class)
+                rois_2 = get_random_row_with_id(db_name, second_class)
+                matches = compare_retireved_images(db_name=db_name, image_tag_1=rois_1[0], image_tag_2=rois_2[0], **parameter)
+                new_test['tags'] = [rois_1[0], rois_2[0]]
+                new_test['classes'] = [first_class, second_class]
+                new_test['matches'] = matches
+                new_test['parameter'] = parameter
+                results_dif[param_id][test_id] = new_test
+                param_dict['false_match'][param_id].append(int(matches['complete']))
+            except: pass
+
+        for test_id in range(test_size_same):
+            try:
+                new_test = {}
+                number_list = list(range(6))
+                first_class = random.choice(number_list)
+                rois_1 = get_random_row_with_id(db_name, first_class)
+                rois_2 = get_random_row_with_id(db_name, first_class)
+                while rois_1[0] == rois_2[0]:
+                    rois_2 = get_random_row_with_id(db_name, first_class)
+                matches = compare_retireved_images(db_name=db_name, image_tag_1=rois_1[0], image_tag_2=rois_2[0], **parameter)
+                new_test['tags'] = [rois_1[0], rois_2[0]]
+                new_test['classes'] = [first_class, first_class]
+                new_test['matches'] = matches
+                new_test['parameter'] = parameter
+                results_same[param_id][test_id] = new_test
+                param_dict['true_match'][param_id].append(int(matches['complete']))
+            except: pass
+
+    param_dict['false_match']['details'] = results_dif
+    param_dict['true_match']['details'] = results_same
+    
+    with open('output.json', 'w') as json_file:
+        json.dump(param_dict, json_file, indent=4)
+
+    return param_dict
+
+
+
 if __name__ == "__main__":
 
-    load_from_thousand()
-    # rois = load_rois_from_image(r'IrisDB/test-data/Test/S2005R09.jpg')
+    # load_from_thousand()
+
+    db_name='iris_db_thousand'
+
+    results = test_parameters(db_name, test_size_diff=10, test_size_same=10)
+
