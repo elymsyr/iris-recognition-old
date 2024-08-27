@@ -1003,7 +1003,21 @@ def test_parameters(db_name, test_size_diff = 10, test_size_same = 10, dratio_li
 
     return param_dict
 
+def find_best_index(false_match, true_match):
+    best_index = None
+    best_score = float('-inf')
 
+    for index in false_match:
+        # Calculate score: high true_match value minus low false_match value
+        score = sum(true_match[index]) - sum(false_match[index])
+
+        print(f"Index {index}: Score = {score} (True Match Sum: {sum(true_match[index])}, False Match Sum: {sum(false_match[index])})")
+
+        if score > best_score:
+            best_score = score
+            best_index = index
+
+    return best_index, best_score
 
 if __name__ == "__main__":
 
@@ -1013,3 +1027,11 @@ if __name__ == "__main__":
 
     results = test_parameters(db_name, test_size_diff=10, test_size_same=10)
 
+    index, score= find_best_index(results['false_match'], results['true_match'])
+    
+    print(score, index, results['false_match'][index], results['true_match'][index])
+
+    # 406 22
+    # 330 25
+    # 431 23
+    # 392 22
