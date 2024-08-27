@@ -782,7 +782,10 @@ def create_tables(db_name):
         CREATE TABLE IF NOT EXISTS {table_name} (
             feature_tag TEXT PRIMARY KEY,
             iris_id INTEGER,
+            img BLOB,
             kp BLOB,
+            pupil_circle BLOB,
+            ext_circle BLOB,            
             des BLOB,
             FOREIGN KEY (iris_id) REFERENCES iris (iris_id)
         )
@@ -793,9 +796,6 @@ def create_tables(db_name):
         CREATE TABLE IF NOT EXISTS {table_name}_img (
             feature_tag TEXT PRIMARY KEY,
             iris_id INTEGER,
-            img BLOB,
-            pupil_circle BLOB,
-            ext_circle BLOB,
             img_kp_init BLOB,
             img_kp_filtered BLOB,
             FOREIGN KEY (iris_id) REFERENCES iris (iris_id)
@@ -805,7 +805,7 @@ def create_tables(db_name):
     conn.commit()
     conn.close()
 
-def insert_iris(db_name, feature_tag, iris_id, feature_data):
+def insert_iris(db_name, feature_tag, iris_id, feature_data, save_img = False):
     conn = sqlite3.connect(f'{db_name}.db')
     c = conn.cursor()
 
@@ -815,40 +815,39 @@ def insert_iris(db_name, feature_tag, iris_id, feature_data):
     ''', (iris_id, feature_tag, int(feature_data['kp_len']), int(feature_data['kp_filtered_len']), int(feature_data['desc_len']), int(feature_data['kp_desc_len'])))
 
     # Insert into feature tables
-    feature_tables = ['right_side', 'left_side', 'bottom', 'complete']
-    for table_name in feature_tables:
-        data = feature_data.get(table_name.replace('_', '-'), {})
-        table_name = f"{table_name}_img"
-        if data:
-            serialized_pupil_circle = pickle.dumps(data['pupil_circle'])
-            serialized_ext_circle = pickle.dumps(data['ext_circle'])
-
-            c.execute(f'''
-            INSERT INTO {table_name} (iris_id, feature_tag, img, pupil_circle, ext_circle, img_kp_init, img_kp_filtered)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            ''', (
-                iris_id,
-                feature_tag,
-                pickle.dumps(data['img']),
-                serialized_pupil_circle,
-                serialized_ext_circle,
-                pickle.dumps(data['img_kp_init']),
-                pickle.dumps(data['img_kp_filtered']),
-            ))
+    if save_img:
+        feature_tables = ['right_side', 'left_side', 'bottom', 'complete']
+        for table_name in feature_tables:
+            data = feature_data.get(table_name.replace('_', '-'), {})
+            table_name = f"{table_name}_img"
+            if data:
+                c.execute(f'''
+                INSERT INTO {table_name} (iris_id, feature_tag, img_kp_init, img_kp_filtered)
+                VALUES (?, ?, ?, ?)
+                ''', (
+                    iris_id,
+                    feature_tag,
+                    pickle.dumps(data['img_kp_init']),
+                    pickle.dumps(data['img_kp_filtered']),
+                ))
             
     feature_tables = ['right_side', 'left_side', 'bottom', 'complete']
     for table_name in feature_tables:
         data = feature_data.get(table_name.replace('_', '-'), {})
         if data:
             serialized_kp = pickle.dumps(serialize_keypoints(data['kp']))
-
+            serialized_pupil_circle = pickle.dumps(data['pupil_circle'])
+            serialized_ext_circle = pickle.dumps(data['ext_circle'])
             c.execute(f'''
-            INSERT INTO {table_name} (iris_id, feature_tag, kp, des)
-            VALUES (?, ?, ?, ?)
+            INSERT INTO {table_name} (iris_id, feature_tag, img, kp, pupil_circle, ext_circle, des)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             ''', (
                 iris_id,
                 feature_tag,
+                pickle.dumps(data['img']),
                 serialized_kp,
+                serialized_pupil_circle,
+                serialized_ext_circle,                
                 pickle.dumps(data['des'])
             ))
 
@@ -856,61 +855,66 @@ def insert_iris(db_name, feature_tag, iris_id, feature_data):
     conn.close()
     print(f'Iris {feature_tag} is inserted to {db_name}...')
 
-def retrieve_iris(db_name, feature_tag):
+def retrieve_iris(db_name, feature_tag, get_img=False):
     conn = sqlite3.connect(f'{db_name}.db')
     c = conn.cursor()
 
-    # Retrieve from iris table
+    # Initialize dictionary to store iris data
+    iris_data = {}
+
+    # Retrieve metadata from iris table
     c.execute('SELECT * FROM iris WHERE feature_tag = ?', (feature_tag,))
     iris_metadata = c.fetchone()
+    if iris_metadata:
+        iris_data['iris_metadata'] = iris_metadata
 
-    feature_tables = ['right_side', 'left_side', 'bottom', 'complete']
-    iris_data = {'iris_metadata': iris_metadata}
+        # Retrieve feature data from specified tables
+        feature_tables = ['right_side', 'left_side', 'bottom', 'complete']
+        for table_name in feature_tables:
+            dict_table_name = table_name.replace('_', '-')
+            iris_data[dict_table_name] = {}
 
-    for table_name in feature_tables:
-        c.execute(f'SELECT * FROM {table_name} WHERE feature_tag = ?', (feature_tag,))
-        rows = c.fetchall()
-        for row in rows:
-            # Deserialize the feature data
-            kp = pickle.loads(row[2])
-            des = pickle.loads(row[3])
-            
-        c.execute(f'SELECT * FROM {table_name}_img WHERE feature_tag = ?', (feature_tag,))
-        rows = c.fetchall()
-        for row in rows:
-            # Deserialize the feature data
-            img = pickle.loads(row[2])
-            pupil_circle = pickle.loads(row[3])
-            ext_circle = pickle.loads(row[4])
-            img_kp_init = pickle.loads(row[5])
-            img_kp_filtered = pickle.loads(row[6])
+            # Retrieve keypoints and descriptors
+            c.execute(f'SELECT * FROM {table_name} WHERE feature_tag = ?', (feature_tag,))
+            rows = c.fetchall()
+            for row in rows:
+                # Deserialize the feature data
+                img = pickle.loads(row[2])
+                kp = pickle.loads(row[3])
+                pupil_circle = pickle.loads(row[4])
+                ext_circle = pickle.loads(row[5])                
+                des = pickle.loads(row[6])
+                iris_data[dict_table_name]['img'] = img
+                iris_data[dict_table_name]['kp'] = deserialize_keypoints(kp)
+                iris_data[dict_table_name]['des'] = des
+                iris_data[dict_table_name]['pupil_circle'] = pupil_circle
+                iris_data[dict_table_name]['ext_circle'] = ext_circle
 
-            # Convert keypoints back
-            kp = deserialize_keypoints(kp)
+            # Retrieve image and related data if requested
+            if get_img:
+                c.execute(f'SELECT * FROM {table_name}_img WHERE feature_tag = ?', (feature_tag,))
+                img_rows = c.fetchall()
+                for img_row in img_rows:
+                    img_kp_init = pickle.loads(img_row[3])
+                    img_kp_filtered = pickle.loads(img_row[4])
+                    iris_data[dict_table_name]['img_kp_init'] = img_kp_init
+                    iris_data[dict_table_name]['img_kp_filtered'] = img_kp_filtered
 
-            iris_data[table_name.replace('_', '-')] = {
-                'img': img,
-                'pupil_circle': pupil_circle,
-                'ext_circle': ext_circle,
-                'kp': kp,
-                'img_kp_init': img_kp_init,
-                'img_kp_filtered': img_kp_filtered,
-                'des': des
-            }
+        # Retrieve additional information from the iris table
+        c.execute('SELECT * FROM iris WHERE feature_tag = ?', (feature_tag,))
+        iris_additional_info = c.fetchall()
+        if iris_additional_info:
+            for row in iris_additional_info:
+                # Deserialize additional feature data
+                kp_len = int(row[2])
+                kp_filtered_len = int(row[3])
+                desc_len = int(row[4])
+                kp_desc_len = int(row[5])
 
-        c.execute(f'SELECT * FROM iris WHERE feature_tag = ?', (feature_tag,))
-        rows = c.fetchall()
-        for row in rows:
-            # Deserialize the feature data
-            kp_len = int(row[2])
-            kp_filtered_len = int(row[3])
-            desc_len = int(row[4])
-            kp_desc_len = int(row[5])
-
-        iris_data['kp_len'] = kp_len
-        iris_data['kp_filtered_len'] = kp_filtered_len
-        iris_data['desc_len'] = desc_len
-        iris_data['kp_desc_len'] = kp_desc_len
+                iris_data['kp_len'] = kp_len
+                iris_data['kp_filtered_len'] = kp_filtered_len
+                iris_data['desc_len'] = desc_len
+                iris_data['kp_desc_len'] = kp_desc_len
 
     conn.close()
     return iris_data
@@ -922,14 +926,14 @@ def print_dict_types(data):
             print(f"  {key}")
             for s_key,s_value in value.items():
                 print(f"    {s_key} : {type(s_value) if type(s_value) != tuple else {type(item) for item in s_value}}")
-        else: print(f"    {key} : {type(value) if type(value) != tuple else {type(item) for item in value}}")
+        else: print(f"{key} : {type(value) if type(value) != tuple else {type(item) for item in value}}")
 
 def load_to_db(db_name, image_name, rois_id, img_path):
     rois = load_rois_from_image(img_path, False)
     insert_iris(db_name, image_name, rois_id, rois)
 
 def load_from_thousand():
-    db_name = 'iris_db_thousand'
+    db_name = 'iris_db_thousand_new'
     if f'{db_name}.db' not in os.listdir():
         create_tables(db_name)
     path = r'IrisDB/casia-iris-thousand-500mb/CASIA-Iris-Thousand/'
@@ -1068,7 +1072,4 @@ def parameter_test_for_comparison(db_name, test_size_diff=10, test_size_same=10)
     return index, score
 
 if __name__ == "__main__":
-    create_tables('test')
-    # rois = load_rois_from_image(r'IrisDB/test-data/Test/S2001R01.jpg', show=False)
-    print_dict_types(retrieve_iris('test', '3esx'))
-    print(retrieve_iris('test', '3esx')['iris_metadata'])
+    load_from_thousand()
