@@ -743,8 +743,8 @@ def deserialize_keypoints(serialized_keypoints):
             for (x, y, size, angle, response, octave, class_id) in serialized_keypoints]
 
 
-def create_tables():
-    conn = sqlite3.connect('iris_scans.db')
+def create_tables(db_name):
+    conn = sqlite3.connect(f'{db_name}.db')
     c = conn.cursor()
 
     # Create iris table
@@ -780,8 +780,8 @@ def create_tables():
     conn.commit()
     conn.close()
 
-def insert_iris(feature_tag, feature_data):
-    conn = sqlite3.connect('iris_scans.db')
+def insert_iris(db_name, feature_tag, feature_data):
+    conn = sqlite3.connect(f'{db_name}.db')
     c = conn.cursor()
 
     # Insert into iris table
@@ -816,8 +816,8 @@ def insert_iris(feature_tag, feature_data):
     conn.commit()
     conn.close()
 
-def retrieve_iris(iris_id):
-    conn = sqlite3.connect('iris_scans.db')
+def retrieve_iris(db_name, iris_id):
+    conn = sqlite3.connect(f'{db_name}.db')
     c = conn.cursor()
 
     # Retrieve from iris table
@@ -878,17 +878,38 @@ def print_dict_types(data):
             for s_key,s_value in value.items():
                 print(f"    {s_key} : {type(s_value) if type(s_value) != tuple else {type(item) for item in s_value}}")    
 
+def load_to_db(self, folder, db_name, rois_id):
+    if 'iris_scans.db' not in os.listdir():
+        create_tables(db_name)
+    for image in os.listdir(folder):
+        rois = load_rois_from_image(image)
+        insert_iris(rois_id, rois)
+        
+def load_from_thousand():
+    path = r'IrisDB/casia-iris-thousand-500mb/CASIA-Iris-Thousand/'
+    number = 0
+    img = 0
+    for id in os.listdir(path):
+        print(f'checking {id}...')
+        number+= 1
+        for image in os.listdir(path+f"{id}/R")+os.listdir(path+f"{id}/L"):
+        #    print(image)
+           img+= 1
+    print(number)
+    print(img)
+
 if __name__ == "__main__":
 
-    # Specify 2 image paths
-    filepath1 = r'./S2002R01.jpg'
-    filepath2 = r'./S2002R20.jpg'
+    path1 = r'IrisDB/casia-iris-thousand-500mb/CASIA-Iris-Thousand/000/L'
+    path1 = r'IrisDB/casia-iris-thousand-500mb/CASIA-Iris-Thousand/000/R'
+
+    load_from_thousand()
+
+
+
 
     # # if os.path.isfile(filepath1) and os.path.isfile(filepath2):
     # #     compare_images(filepath1, filepath2)
-
-    if 'iris_scans.db' not in os.listdir():
-        create_tables()
 
     # print("Analysing " + filepath1)
     # rois_1 = load_rois_from_image(filepath1)
@@ -900,6 +921,6 @@ if __name__ == "__main__":
     # # print_dict_types(rois_2)
     # insert_iris('iris_test_02', rois_2)
 
-    data = retrieve_iris(1)
-    print_dict_types(data)
-    print(data['kp_len'])
+    # data = retrieve_iris(1)
+    # print_dict_types(data)
+    # print(data['kp_len'])
