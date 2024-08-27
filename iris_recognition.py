@@ -1,9 +1,17 @@
 import numpy as np
-import cv2, sqlite3, os
+import cv2, sqlite3, os, time
 import math, random, pickle, copy, gzip, inspect, json
 
 from matplotlib import pyplot as plt
 
+def counter(func):
+    def wrapper(*args, **kwargs):
+        start = time.perf_counter()
+        result = func(*args, **kwargs)
+        end = time.perf_counter()
+        print(f"{func.__name__} ended in {end - start:.6f} seconds")
+        return result
+    return wrapper
 
 def compare_images(filepath1, filepath2):
     print("Analysing " + filepath1)
@@ -23,6 +31,7 @@ def compare_binfiles(bin_path1, bin_path2):
 
     getall_matches(rois_1, rois_2, 0.88, 10, 0.07, show=True)
 
+@counter
 def load_rois_from_image(filepath: str, show = True):
     img = load_image(filepath, show) # show=True
     print(f"\nImage loaded -> {(filepath.split('/'))[-3:]}")
@@ -55,6 +64,7 @@ def load_image(filepath, show=False):
         cv2.destroyAllWindows()
     return img
 
+@counter
 def get_iris_boundaries(img, show=False):
     # Finding iris inner boundary
     pupil_circle = find_pupil(img)
@@ -311,6 +321,7 @@ def draw_circles(cimg, pupil_circle, ext_iris_circle,
     cv2.circle(cimg, (ext_iris_circle[0], ext_iris_circle[1]),
                1,(0,255,0),1)
 
+@counter
 def get_equalized_iris(img, ext_iris_circle, pupil_circle, show=False):
     def find_roi():
         mask = img.copy()
@@ -357,6 +368,7 @@ def get_equalized_iris(img, ext_iris_circle, pupil_circle, show=False):
 
     return roi
 
+@counter
 def get_rois(img, pupil_circle, ext_circle, show=False):
     bg = img.copy()
     bg[:] = 0
@@ -447,6 +459,7 @@ def get_rois(img, pupil_circle, ext_circle, show=False):
 
     return rois
 
+@counter
 def load_keypoints(sift, rois, show=False):
     bf = cv2.BFMatcher()
 
@@ -535,6 +548,7 @@ def load_keypoints(sift, rois, show=False):
             i+=1
         plt.show()
 
+@counter
 def load_descriptors(sift, rois):
     for pos in ['right-side','left-side','bottom','complete']:
         rois[pos]['kp'], rois[pos]['des'] = \
