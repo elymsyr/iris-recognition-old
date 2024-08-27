@@ -101,6 +101,7 @@ def get_iris_boundaries(img, show=False):
 
     return pupil_circle, ext_iris_circle
 
+@counter
 def find_pupil(img):
     def get_edges(image):
         edges = cv2.Canny(image,20,100)
@@ -166,6 +167,7 @@ def get_mean_circle(circles, draw=None):
 
     return mean_0, mean_1, mean_2
 
+@counter
 def find_ext_iris(img, pupil_circle, center_range, radius_range):
     def get_edges(image, thrs2):
         thrs1 = 0 # 0
@@ -225,6 +227,7 @@ def find_ext_iris(img, pupil_circle, center_range, radius_range):
         return
 
     cimg = cv2.cvtColor(img,cv2.COLOR_GRAY2BGR)
+    if cv2.waitKey(10000): pass
     filtered = filtered_circles(total_circles)
 
     return get_mean_circle(filtered)
