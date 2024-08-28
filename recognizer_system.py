@@ -833,7 +833,7 @@ class IrisRecognizer():
 
         return rois
 
-    def load_keypoints(self, sift, rois, show=False):
+    def load_keypoints(self, sift: cv2.SIFT, rois, show=False, show_pos: list = ['right-side','left-side','bottom']):
         bf = cv2.BFMatcher()
 
 
@@ -911,7 +911,7 @@ class IrisRecognizer():
         # Show keypoints images
         if show:
             i=0
-            for pos in ['right-side','left-side','bottom']:
+            for pos in show_pos:
                 plt.subplot(3, 2, 2*i+1), \
                 plt.imshow(rois[pos]['img_kp_init'])
                 plt.xticks([]), plt.yticks([])
