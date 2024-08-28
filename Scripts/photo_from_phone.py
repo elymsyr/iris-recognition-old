@@ -1,9 +1,10 @@
 # Import essential libraries 
 import requests, os, cv2, imutils
-import numpy as np 
+import numpy as np
+from url_phone import url
   
 # Replace the below URL with your own. Make sure to add "/shot.jpg" at last. 
-url = "http://192.168.0.25:8080/shot.jpg"
+
   
 # While loop to continuously fetching data from the Url 
 while True:
