@@ -833,7 +833,7 @@ class IrisRecognizer():
 
         return rois
 
-    def load_keypoints(self, sift: cv2.SIFT, rois, show=False, show_pos: list = ['right-side','left-side','bottom']):
+    def load_keypoints(self, sift, rois, show=False, show_pos: list = ['right-side','left-side','bottom']):
         bf = cv2.BFMatcher()
 
 
